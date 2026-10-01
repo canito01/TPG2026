@@ -1,0 +1,17 @@
+# Archivos compilados
+target/
+*.class
+
+# Archivos de configuración de IDEs (Eclipse, IntelliJ, etc.)
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Ignorar archivos PDF
+*.pdf
