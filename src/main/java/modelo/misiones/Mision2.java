@@ -1,47 +1,34 @@
 package modelo.misiones;
 
+import modelo.asistente.AsistenteDeComando;
+
 public class Mision2 extends Mision {
 
     public Mision2() {
-        super("M");
+        super("M-02");
     }
 
     @Override
     protected boolean evaluar(AsistenteDeComando a) {
-        String estado = a.consultarEstado();
-        return estado.equals("Elemento obtenido");
+        registrarAccion("Resultado evaluado");
+        return operacionCompletada();
     }
 
     @Override
     protected InformeMision cerrar(AsistenteDeComando a) {
-        String estadonave = a.consultarEstado();
-        String resultado;
-        String observaciones;
-        String recursosconsu = a.consultarRecursos().toString();
+        boolean exito = fueExitosa();
 
-        boolean fueExito = this.evaluar(a);
+        String resultado = exito ? "Exito: Elemento obtenido" : "Fracaso: No se pudo recolectar";
+        String observaciones = exito ? "Muestra o datos registrados correctamente." : "La operacion de recoleccion resulto inviable o fue interrumpida.";
 
-        if (fueExito == true) {
-            resultado = "Éxito: Elemento obtenido";
-        } else {
-            resultado = "Fracaso: No se pudo recolectar";
+        registrarAccion("Mision " + getNombre() + " cerrada");
+
+        InformeMision informe = new InformeMision(getNombre(), resultado, resumenRecursosConsumidos(), String.valueOf(a.consultarEstado()), observaciones);
+
+        for (String accion : getAcciones()) {
+            informe.agregarAccion(accion);
         }
-
-        if (fueExito == true) {
-            observaciones = "Muestra o datos guardados correctamente en la bodega de carga.";
-        } else {
-            observaciones = "La operación de recolección resultó inviable o fue interrumpida.";
-        }
-
-        InformeMision informeGenerado = new InformeMision(
-                this.getNombre(),
-                resultado,
-                recursosconsu,
-                estadonave,
-                observaciones
-        );
-
-        return informeGenerado;
+        return informe;
     }
 
     @Override

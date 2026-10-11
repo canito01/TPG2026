@@ -17,27 +17,27 @@ public class InformeMision {
         this.estadonave=estadonave;
         this.observaciones=observaciones;
     }
-    public String getnombre() {
+    public String getNombre() {
         return this.nombre;
     }
-    public String getresultado() {
+    public String getResultado() {
         return this.resultado;
     }
-    public ArrayList<String> getacciones() {
-        return this.acciones;
+    public ArrayList<String> getAcciones() {
+        return new ArrayList<>(acciones);
     }
-    public String getrecursosconsumidos() {
+    public String getRecursosConsumidos() {
         return this.recursosconsu;
     }
 
-    public String getestadonave() {
+    public String getEstadoNave() {
         return this.estadonave;
     }
 
-    public String getobservaciones() {
+    public String getObservaciones() {
         return this.observaciones;
     }
-    protected void agregaaccione(String accion){
+    protected void agregarAccion(String accion){
         acciones.add(accion);
     }
 
