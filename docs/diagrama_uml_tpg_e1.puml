@@ -1,0 +1,349 @@
+@startuml diagrama_uml_tpg_e1
+title TPG 2026 - Entrega 1 - Software embarcado de nave interestelar\nDiagrama de clases
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam class {
+  BackgroundColor #FDFDFD
+  BorderColor #444444
+}
+skinparam package {
+  BackgroundColor #F4F7FB
+  BorderColor #8899AA
+}
+hide empty members
+
+package "app" #EEEEEE {
+  class Main {
+    + {static} main(args: String[])
+  }
+}
+
+package "modelo.fabrica" {
+  class NaveFactory {
+    + crear(tipo: TipoNave, id: String): Nave
+  }
+}
+
+package "modelo.nave" {
+  enum TipoNave {
+    EXPLORADORA
+    CARGUERO
+    COMBATE
+  }
+
+  abstract class Nave {
+    - id: String
+    - tipo: TipoNave
+    - recursos: Recursos
+    - motor: MotorWarp
+    - tripulacion: List<Tripulante>
+    + getId(): String
+    + getTipo(): TipoNave
+    + getRecursos(): Recursos
+    + getMotor(): MotorWarp
+    + getTripulacion(): List<Tripulante>
+    + agregarTripulante(t: Tripulante)
+  }
+
+  class NaveExploradora
+  class NaveCarguero
+  class NaveCombate
+
+  class Recursos {
+    - combustible: int  [0..100]
+    - energia: int  [0..100]
+    - desgaste: int  [0..100]
+    + {static} MAXIMO = 100
+    + {static} UMBRAL_MANTENIMIENTO = 80
+    + getCombustible(): int
+    + getEnergia(): int
+    + getDesgaste(): int
+    + cargarCombustible(n: int)
+    + cargarEnergia(n: int)
+    + consumir(combustible: int, energia: int)
+    + desgastar(n: int)
+    + realizarMantenimiento()
+    + requiereMantenimiento(): boolean
+  }
+
+  class RecursoFueraDeRangoException <<RuntimeException>>
+}
+
+package "modelo.motor" {
+  class MotorWarp <<Context>> {
+    - estado: EstadoMotor
+    + prepararSalto()
+    + saltar()
+    + enfriar()
+    + terminarEnfriamiento()
+    + terminarSalto()
+    + estaDisponible(): boolean
+    + getEstado(): EstadoMotor
+    ~ setEstado(e: EstadoMotor)
+  }
+
+  interface EstadoMotor <<State>> {
+    + prepararSalto(m: MotorWarp)
+    + saltar(m: MotorWarp)
+    + enfriar(m: MotorWarp)
+    + terminarEnfriamiento(m: MotorWarp)
+    + terminarSalto(m: MotorWarp)
+    + estaDisponible(): boolean
+    + nombre(): String
+  }
+
+  abstract class EstadoBase
+  class Disponible
+  class PreparandoSalto
+  class EnWarp
+  class Enfriamiento
+}
+
+package "modelo.universo" {
+  class CentroDeControl {
+    - asistentes: Map<String, AsistenteDeComando>
+    - activo: AsistenteDeComando
+    + registrar(a: AsistenteDeComando)
+    + obtener(id: String): AsistenteDeComando
+    + seleccionarActivo(id: String)
+    + getActivo(): AsistenteDeComando
+    + hayActivo(): boolean
+    + cantidad(): int
+    + existe(id: String): boolean
+    + ids(): List<String>
+  }
+
+  class AsistenteDuplicadoException
+  class AsistenteInexistenteException
+}
+
+package "modelo.asistente" {
+  interface AsistenteDeComando {
+    + getNaveId(): String
+    + consultarEstado(): String
+    + consultarRecursos(): ResumenRecursos
+    + consumir(combustible: int, energia: int, desgaste: int): Resultado
+    + cargarCombustible(cantidad: int): Resultado
+    + cargarEnergia(cantidad: int): Resultado
+    + realizarMantenimiento(): Resultado
+    + prepararSalto(): Resultado
+    + saltar(): Resultado
+    + enfriar(): Resultado
+    + terminarEnfriamiento(): Resultado
+    + registrarEvento(descripcion: String)
+    + consultarBitacora(): List<Evento>
+  }
+
+  class AsistenteBase {
+    - nave: Nave
+    - bitacora: Bitacora
+  }
+
+  class ResumenRecursos <<inmutable>> {
+    - combustible: int
+    - energia: int
+    - desgaste: int
+    - requiereMantenimiento: boolean
+    + getCombustible(): int
+    + getEnergia(): int
+    + getDesgaste(): int
+    + requiereMantenimiento(): boolean
+  }
+
+  class Bitacora {
+    - eventos: List<Evento>
+    + registrar(descripcion: String)
+    + getEventos(): List<Evento>  <<solo lectura>>
+  }
+
+  class Evento <<inmutable>> {
+    - fecha: LocalDateTime
+    - descripcion: String
+    + getFecha(): LocalDateTime
+    + getDescripcion(): String
+  }
+
+  class Resultado <<inmutable>> {
+    - exito: boolean
+    - mensaje: String
+    + esExito(): boolean
+    + fueExito(): boolean
+    + getMensaje(): String
+  }
+
+  class ExcepcionDominio <<RuntimeException>>
+  class TransicionInvalidaException
+}
+
+package "modelo.misiones" {
+  abstract class Mision <<Template Method>> {
+    # nombre: String
+    + {final} ejecutarCiclo(a: AsistenteDeComando): InformeMision
+    # preparar(a: AsistenteDeComando)
+    # ejecutar(a: AsistenteDeComando)
+    # {abstract} evaluar(a: AsistenteDeComando): boolean
+    # {abstract} cerrar(a: AsistenteDeComando): InformeMision
+    # {abstract} energiaAdicional(): int
+    # costoCombustible(): int = 4
+    # costoDesgaste(): int = 4
+    + getNombre(): String
+  }
+
+  class Mision1 <<Intercepcion y asistencia>>
+  class Mision2 <<Recoleccion>>
+  class Mision3 <<Retorno seguro>>
+
+  class InformeMision <<datos>> {
+    - nombre: String
+    - resultado: String
+    - acciones: List<String>
+    - recursosconsu: String
+    - estadonave: String
+    - observaciones: String
+    + getNombre(): String
+    + getResultado(): String
+    + getAcciones(): List<String>
+    + getRecursosConsumidos(): String
+    + getEstadoNave(): String
+    + getObservaciones(): String
+  }
+}
+
+package "modelo.tripulacion" {
+  class Tripulante {
+    - identidad: String
+    - cargo: Cargo
+    - origen: Origen
+    - antiguedad: int  [>= 0]
+    + getIdentidad(): String
+    + getCargo(): Cargo
+    + getOrigen(): Origen
+    + getAntiguedad(): int
+  }
+
+  enum Cargo {
+    CAPITAN
+    CONSEJERO
+    TENIENTE
+    ALFEREZ
+  }
+
+  enum Origen {
+    TERRICOLA
+    VULCANO
+    MARCIANO
+  }
+
+  interface ConceptoHaber <<Component>> {
+    + calcularTotal(): double
+    + obtenerDetalle(): String
+  }
+
+  class SueldoBase <<ConcreteComponent>> {
+    - tripulante: Tripulante
+  }
+
+  abstract class HaberDecorator <<Decorator>> {
+    # envuelto: ConceptoHaber
+    # tripulante: Tripulante
+  }
+
+  class BonoAntiguedad
+  class BonoConsejero {
+    - consejosDados: int
+  }
+  class SubsidioOrigen
+}
+
+' --- Herencia / realizacion ---
+Nave <|-- NaveExploradora
+Nave <|-- NaveCarguero
+Nave <|-- NaveCombate
+
+EstadoMotor <|.. EstadoBase
+EstadoBase <|-- Disponible
+EstadoBase <|-- PreparandoSalto
+EstadoBase <|-- EnWarp
+EstadoBase <|-- Enfriamiento
+
+AsistenteDeComando <|.. AsistenteBase
+
+ExcepcionDominio <|-- TransicionInvalidaException
+ExcepcionDominio <|-- AsistenteDuplicadoException
+ExcepcionDominio <|-- AsistenteInexistenteException
+
+Mision <|-- Mision1
+Mision <|-- Mision2
+Mision <|-- Mision3
+
+ConceptoHaber <|.. SueldoBase
+ConceptoHaber <|.. HaberDecorator
+HaberDecorator <|-- BonoAntiguedad
+HaberDecorator <|-- BonoConsejero
+HaberDecorator <|-- SubsidioOrigen
+
+' --- Asociaciones / composicion ---
+Nave *-- "1" Recursos
+Nave *-- "1" MotorWarp
+Nave o-- "0..*" Tripulante : tripulacion
+Nave --> TipoNave
+MotorWarp --> "1" EstadoMotor : estado actual
+EstadoMotor ..> MotorWarp : cambia el estado
+Disponible ..> PreparandoSalto : <<create>>
+PreparandoSalto ..> EnWarp : <<create>>
+EnWarp ..> Enfriamiento : <<create>>
+Enfriamiento ..> Disponible : <<create>>
+
+AsistenteBase --> "1" Nave : opera una sola
+AsistenteBase *-- "1" Bitacora
+Bitacora *-- "0..*" Evento
+AsistenteBase ..> ResumenRecursos : devuelve
+AsistenteBase ..> Resultado : devuelve
+AsistenteBase ..> ExcepcionDominio : captura y registra
+
+CentroDeControl o-- "0..*" AsistenteDeComando : registra por abstraccion
+
+Mision ..> AsistenteDeComando : usa (nunca la Nave)
+Mision ..> InformeMision : <<create>>
+
+Tripulante --> Cargo
+Tripulante --> Origen
+HaberDecorator o-- "1" ConceptoHaber : envuelve
+SueldoBase --> Tripulante
+HaberDecorator --> Tripulante
+
+NaveFactory ..> TipoNave
+NaveFactory ..> Nave : <<create>>
+NaveFactory ..> NaveExploradora : <<create>>
+NaveFactory ..> NaveCarguero : <<create>>
+NaveFactory ..> NaveCombate : <<create>>
+
+Main ..> NaveFactory
+Main ..> CentroDeControl
+Main ..> Mision
+Main ..> AsistenteDeComando
+
+note bottom of Recursos
+  Invariantes: 0..100 en cada recurso.
+  Mantenimiento si desgaste >= 80.
+  Operacion inválida = sin cambios parciales.
+  Iniciales: Exploradora 60/80/0,
+  Carguero 100/60/0, Combate 80/100/0
+end note
+
+note right of Mision
+  Orden fijo: preparar -> ejecutar -> evaluar -> cerrar.
+  Costo: 4 combustible + 4 desgaste.
+  Energía adicional: M1=5, M2=5, M3=0.
+end note
+
+note bottom of MotorWarp
+  Disponible -> PreparandoSalto -> EnWarp
+  -> Enfriamiento -> Disponible.
+  Transicion inválida: sin efecto + registro.
+end note
+@enduml
