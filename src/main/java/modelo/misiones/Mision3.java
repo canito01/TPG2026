@@ -5,45 +5,30 @@ import modelo.asistente.AsistenteDeComando;
 public class Mision3 extends Mision {
 
     public Mision3() {
-        super("M3");
+        super("M-03");
     }
 
     @Override
     protected boolean evaluar(AsistenteDeComando a) {
-        String estado = a.consultarEstado();
-        return estado.equals("Operativo");
+        registrarAccion("Resultado evaluado");
+        return operacionCompletada();
     }
 
     @Override
     protected InformeMision cerrar(AsistenteDeComando a) {
-        String estadonave = a.consultarEstado();
-        String resultado;
-        String observaciones;
-        String recursosconsu = a.consultarRecursos().toString();
+        boolean exito = fueExitosa();
 
-        boolean fueExito = this.evaluar(a);
+        String resultado = exito ? "Exito: Retorno completado" : "Fracaso: La nave no pudo retornar de forma segura";
+        String observaciones = exito ? "La nave alcanzo la zona designada y cerro su operacion correctamente." : "La nave no logro llegar a la zona de referencia dentro de los parametros seguros.";
 
-        if (fueExito == true) {
-            resultado = "Éxito: Retorno completado";
-        } else {
-            resultado = "Fracaso: La nave no pudo retornar de forma segura";
+        registrarAccion("Mision " + getNombre() + " cerrada");
+
+        InformeMision informe = new InformeMision(getNombre(), resultado, resumenRecursosConsumidos(), String.valueOf(a.consultarEstado()), observaciones);
+
+        for (String accion : getAcciones()) {
+            informe.agregarAccion(accion);
         }
-
-        if (fueExito == true) {
-            observaciones = "La nave alcanzó la zona designada y cerró su operación correctamente";
-        } else {
-            observaciones = "La nave no logró llegar a la zona de referencia dentro de los parámetros seguros";
-        }
-
-        InformeMision informeGenerado = new InformeMision(
-                this.getNombre(),
-                resultado,
-                recursosconsu,
-                estadonave,
-                observaciones
-        );
-
-        return informeGenerado;
+        return informe;
     }
 
     @Override
