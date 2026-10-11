@@ -14,8 +14,14 @@ public class PruebasEscenarios {
 
     public static void correrTodas() {
         System.out.println("Escenarios");
+        try { escenarioAFunciona(); Verificador.ok("Escenario A: naves, tripulacion, asistente y 3 misiones"); }
+        catch (Throwable t) { Verificador.fallo("Escenario A: naves, tripulacion, asistente y 3 misiones", t); }
+        try { escenarioBFunciona(); Verificador.ok("Escenario B: recursos insuficientes, rechazo sin cambios y bitacora"); }
+        catch (Throwable t) { Verificador.fallo("Escenario B: recursos insuficientes, rechazo sin cambios y bitacora", t); }
         try { escenarioCFunciona(); Verificador.ok("Escenario C: secuencia valida, rechazos registrados y flujo de mision"); }
         catch (Throwable t) { Verificador.fallo("Escenario C: secuencia valida, rechazos registrados y flujo de mision", t); }
+        try { escenarioDFunciona(); Verificador.ok("Escenario D: violacion de contrato, rechazo y estado conservado"); }
+        catch (Throwable t) { Verificador.fallo("Escenario D: violacion de contrato, rechazo y estado conservado", t); }
         try { escenarioUniversoFunciona(); Verificador.ok("Escenario del centro de control: alta, una activa, rechazos"); }
         catch (Throwable t) { Verificador.fallo("Escenario del centro de control: alta, una activa, rechazos", t); }
         try { pendienteListaPasosYDuenos(); Verificador.ok("escenario pendiente lista los pasos de la Ficha y quien los aporta"); }
@@ -30,6 +36,24 @@ public class PruebasEscenarios {
         return bytes.toString();
     }
 
+    private static void escenarioAFunciona() {
+        String salida = correr(new EscenarioA());
+        Verificador.verificar(salida.contains("Naves creadas y registradas: [EXP-01, CAR-01, COM-01]"), "crea y registra las 3 naves");
+        Verificador.verificar(salida.contains("Nave activa: EXP-01"), "activa EXP-01");
+        Verificador.verificar(salida.contains("James Kirk"), "asigna tripulante capitan");
+        Verificador.verificar(salida.contains("Informe M-01: Exito"), "M-01 completada con exito");
+        Verificador.verificar(salida.contains("Informe M-02: Exito"), "M-02 completada con exito");
+        Verificador.verificar(salida.contains("Informe M-03: Exito"), "M-03 completada con exito");
+        Verificador.verificar(salida.contains("VERIFICADO"), "verificacion cumplida");
+    }
+
+    private static void escenarioBFunciona() {
+        String salida = correr(new EscenarioB());
+        Verificador.verificar(salida.contains("Rechazo capturado correctamente"), "captura el rechazo por recursos insuficientes");
+        Verificador.verificar(salida.contains("Consumo rechazado"), "queda registrado en bitacora");
+        Verificador.verificar(salida.contains("VERIFICADO"), "verificacion cumplida");
+    }
+
     private static void escenarioCFunciona() {
         String salida = correr(new EscenarioC());
         Verificador.verificar(salida.contains("CAMBIO    Disponible -> Preparando salto (prepararSalto)"), "registra el primer cambio");
@@ -38,6 +62,13 @@ public class PruebasEscenarios {
         Verificador.verificar(salida.contains("RECHAZADA enfriar en 'Disponible'"), "registra el rechazo de enfriar");
         Verificador.verificar(salida.contains("VERIFICADO"), "la verificacion se cumple");
         Verificador.verificar(salida.contains("En warp -> Disponible (terminarSalto)"), "el salto termina en Disponible");
+    }
+
+    private static void escenarioDFunciona() {
+        String salida = correr(new EscenarioD());
+        Verificador.verificar(salida.contains("Capturada RecursoFueraDeRangoException"), "captura excepcion de rango");
+        Verificador.verificar(salida.contains("Capturada IllegalArgumentException"), "captura argumento invalido");
+        Verificador.verificar(salida.contains("VERIFICADO"), "verificacion cumplida");
     }
 
     private static void escenarioUniversoFunciona() {
