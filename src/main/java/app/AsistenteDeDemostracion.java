@@ -5,6 +5,9 @@ import java.util.Collections;
 import java.util.List;
 
 import modelo.asistente.AsistenteDeComando;
+import modelo.asistente.Evento;
+import modelo.asistente.Resultado;
+import modelo.asistente.ResumenRecursos;
 import modelo.asistente.TransicionInvalidaException;
 import modelo.motor.MotorWarp;
 
@@ -40,39 +43,108 @@ class AsistenteDeDemostracion implements AsistenteDeComando {
 
     List<String> getRegistro() { return Collections.unmodifiableList(registro); }
 
-    boolean prepararSalto() {
-        String antes = estadoDelMotor();
-        try { motor.prepararSalto(); }
-        catch (TransicionInvalidaException e) { return rechazo(e); }
-        return cambio(antes, "prepararSalto");
+    @Override
+    public String consultarEstado() {
+        return estadoDelMotor();
     }
 
-    boolean saltar() {
-        String antes = estadoDelMotor();
-        try { motor.saltar(); }
-        catch (TransicionInvalidaException e) { return rechazo(e); }
-        return cambio(antes, "saltar");
+    @Override
+    public ResumenRecursos consultarRecursos() {
+        return new ResumenRecursos(0, 0, 0, false);
     }
 
-    boolean enfriar() {
-        String antes = estadoDelMotor();
-        try { motor.enfriar(); }
-        catch (TransicionInvalidaException e) { return rechazo(e); }
-        return cambio(antes, "enfriar");
+    @Override
+    public Resultado consumir(int combustible, int energia, int desgaste) {
+        return new Resultado(true, "Consumo aplicado");
     }
 
-    boolean terminarEnfriamiento() {
+    @Override
+    public Resultado cargarCombustible(int cantidad) {
+        return new Resultado(true, "Combustible cargado");
+    }
+
+    @Override
+    public Resultado cargarEnergia(int cantidad) {
+        return new Resultado(true, "Energia cargada");
+    }
+
+    @Override
+    public Resultado realizarMantenimiento() {
+        return new Resultado(true, "Mantenimiento realizado");
+    }
+
+    @Override
+    public Resultado prepararSalto() {
         String antes = estadoDelMotor();
-        try { motor.terminarEnfriamiento(); }
-        catch (TransicionInvalidaException e) { return rechazo(e); }
-        return cambio(antes, "terminarEnfriamiento");
+        try {
+            motor.prepararSalto();
+            cambio(antes, "prepararSalto");
+            return new Resultado(true, "Salto preparado");
+        } catch (TransicionInvalidaException e) {
+            rechazo(e);
+            return new Resultado(false, e.getMessage());
+        }
+    }
+
+    @Override
+    public Resultado saltar() {
+        String antes = estadoDelMotor();
+        try {
+            motor.saltar();
+            cambio(antes, "saltar");
+            return new Resultado(true, "Salto ejecutado");
+        } catch (TransicionInvalidaException e) {
+            rechazo(e);
+            return new Resultado(false, e.getMessage());
+        }
+    }
+
+    @Override
+    public Resultado enfriar() {
+        String antes = estadoDelMotor();
+        try {
+            motor.enfriar();
+            cambio(antes, "enfriar");
+            return new Resultado(true, "Enfriamiento iniciado");
+        } catch (TransicionInvalidaException e) {
+            rechazo(e);
+            return new Resultado(false, e.getMessage());
+        }
+    }
+
+    @Override
+    public Resultado terminarEnfriamiento() {
+        String antes = estadoDelMotor();
+        try {
+            motor.terminarEnfriamiento();
+            cambio(antes, "terminarEnfriamiento");
+            return new Resultado(true, "Enfriamiento terminado");
+        } catch (TransicionInvalidaException e) {
+            rechazo(e);
+            return new Resultado(false, e.getMessage());
+        }
     }
 
     boolean terminarSalto() {
         String antes = estadoDelMotor();
-        try { motor.terminarSalto(); }
-        catch (TransicionInvalidaException e) { return rechazo(e); }
-        return cambio(antes, "terminarSalto");
+        try {
+            motor.terminarSalto();
+            cambio(antes, "terminarSalto");
+            return true;
+        } catch (TransicionInvalidaException e) {
+            rechazo(e);
+            return false;
+        }
+    }
+
+    @Override
+    public void registrarEvento(String descripcion) {
+        registro.add(descripcion);
+    }
+
+    @Override
+    public List<Evento> consultarBitacora() {
+        return Collections.emptyList();
     }
 
     private boolean cambio(String antes, String accion) {

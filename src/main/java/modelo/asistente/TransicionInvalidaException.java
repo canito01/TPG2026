@@ -5,7 +5,7 @@ package modelo.asistente;
  * que no es valida desde el estado actual.
  * El asistente la captura y la convierte en un Resultado de rechazo.
  */
-public class TransicionInvalidaException extends RuntimeException {
+public class TransicionInvalidaException extends ExcepcionDominio {
 
     private static final long serialVersionUID = 1L;
 

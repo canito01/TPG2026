@@ -24,15 +24,15 @@ class EscenarioC extends EscenarioBase {
 
         out.println();
         out.println("C.1 Secuencia valida (Ficha):");
-        paso(out, a, "prepararSalto", a.prepararSalto(), true, "Preparando salto");
-        paso(out, a, "saltar", a.saltar(), true, "En warp");
-        paso(out, a, "enfriar", a.enfriar(), true, "Enfriamiento");
-        paso(out, a, "terminarEnfriamiento", a.terminarEnfriamiento(), true, "Disponible");
+        paso(out, a, "prepararSalto", a.prepararSalto().esExito(), true, "Preparando salto");
+        paso(out, a, "saltar", a.saltar().esExito(), true, "En warp");
+        paso(out, a, "enfriar", a.enfriar().esExito(), true, "Enfriamiento");
+        paso(out, a, "terminarEnfriamiento", a.terminarEnfriamiento().esExito(), true, "Disponible");
 
         out.println();
         out.println("C.2 Transiciones invalidas (el estado no debe cambiar):");
-        paso(out, a, "saltar (sin preparar)", a.saltar(), false, "Disponible");
-        paso(out, a, "enfriar (sin saltar)", a.enfriar(), false, "Disponible");
+        paso(out, a, "saltar (sin preparar)", a.saltar().esExito(), false, "Disponible");
+        paso(out, a, "enfriar (sin saltar)", a.enfriar().esExito(), false, "Disponible");
 
         out.println();
         out.println("C.3 Verificacion: las rechazadas quedaron registradas");
@@ -45,8 +45,8 @@ class EscenarioC extends EscenarioBase {
         out.println();
         int antesDeC4 = a.getRegistro().size();
         out.println("C.4 Flujo de mision (R3: por ahora el salto termina en Disponible; el enfriamiento pasa sin demora):");
-        paso(out, a, "prepararSalto", a.prepararSalto(), true, "Preparando salto");
-        paso(out, a, "saltar", a.saltar(), true, "En warp");
+        paso(out, a, "prepararSalto", a.prepararSalto().esExito(), true, "Preparando salto");
+        paso(out, a, "saltar", a.saltar().esExito(), true, "En warp");
         paso(out, a, "terminarSalto", a.terminarSalto(), true, "Disponible");
         exigir(a.estaDisponible(), "tras el salto la nave vuelve a estar disponible");
         for (int i = antesDeC4; i < a.getRegistro().size(); i++) {

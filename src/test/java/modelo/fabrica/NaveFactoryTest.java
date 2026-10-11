@@ -1,4 +1,4 @@
-package fabrica;
+package modelo.fabrica;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;

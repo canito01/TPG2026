@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import modelo.motor.MotorWarp;
+import modelo.tripulacion.Cargo;
+import modelo.tripulacion.Origen;
 import modelo.tripulacion.Tripulante;
 
 class NaveTest {
@@ -64,7 +66,7 @@ class NaveTest {
     @Test
     void agregarTripulanteLoIncorporaALaTripulacion() {
         Nave n = new NaveExploradora("EXP-1", new MotorWarp());
-        Tripulante t = new Tripulante();
+        Tripulante t = new Tripulante("T-1", Cargo.CAPITAN, Origen.TERRICOLA, 5);
         n.agregarTripulante(t);
         assertEquals(1, n.getTripulacion().size());
         assertSame(t, n.getTripulacion().get(0));
@@ -80,7 +82,8 @@ class NaveTest {
     @Test
     void laTripulacionExpuestaEsDeSoloLectura() {
         Nave n = new NaveExploradora("EXP-1", new MotorWarp());
-        assertThrows(UnsupportedOperationException.class, () -> n.getTripulacion().add(new Tripulante()));
+        Tripulante t = new Tripulante("T-2", Cargo.TENIENTE, Origen.MARCIANO, 1);
+        assertThrows(UnsupportedOperationException.class, () -> n.getTripulacion().add(t));
         assertTrue(n.getTripulacion().isEmpty());
     }
 

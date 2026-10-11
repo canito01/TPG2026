@@ -22,6 +22,10 @@ public final class Resultado {
         return exito;
     }
 
+    public boolean fueExito() {
+        return exito;
+    }
+
     public String getMensaje() {
         return mensaje;
     }

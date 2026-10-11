@@ -1,8 +1,12 @@
 package pruebas;
 
+import java.util.Collections;
 import java.util.List;
 
 import modelo.asistente.AsistenteDeComando;
+import modelo.asistente.Evento;
+import modelo.asistente.Resultado;
+import modelo.asistente.ResumenRecursos;
 import modelo.universo.AsistenteDuplicadoException;
 import modelo.universo.AsistenteInexistenteException;
 import modelo.universo.CentroDeControl;
@@ -15,6 +19,18 @@ class PruebasCentroDeControl {
         private final String id;
         AsistenteFalso(String id) { this.id = id; }
         public String getNaveId() { return id; }
+        public String consultarEstado() { return null; }
+        public ResumenRecursos consultarRecursos() { return null; }
+        public Resultado consumir(int combustible, int energia, int desgaste) { return null; }
+        public Resultado cargarCombustible(int cantidad) { return null; }
+        public Resultado cargarEnergia(int cantidad) { return null; }
+        public Resultado realizarMantenimiento() { return null; }
+        public Resultado prepararSalto() { return null; }
+        public Resultado saltar() { return null; }
+        public Resultado enfriar() { return null; }
+        public Resultado terminarEnfriamiento() { return null; }
+        public void registrarEvento(String descripcion) {}
+        public List<Evento> consultarBitacora() { return Collections.emptyList(); }
     }
 
     static void correrTodas() {
@@ -100,7 +116,8 @@ class PruebasCentroDeControl {
 
     private static void varianteNuevaSeRegistraSinTocarElCentro() throws Exception {
         CentroDeControl c = new CentroDeControl();
-        AsistenteDeComando variante = new AsistenteDeComando() {
+        AsistenteDeComando variante = new AsistenteFalso("VARIANTE") {
+            @Override
             public String getNaveId() { return "VARIANTE"; }
         };
         c.registrar(variante);

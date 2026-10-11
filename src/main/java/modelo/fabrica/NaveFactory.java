@@ -1,4 +1,4 @@
-package fabrica;
+package modelo.fabrica;
 
 import java.util.EnumMap;
 import java.util.Map;
