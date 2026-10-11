@@ -12,23 +12,22 @@ import modelo.nave.NaveExploradora;
 import modelo.nave.TipoNave;
 
 /**
- * Fábrica de naves. El cliente pide un {@link TipoNave} y recibe una {@link Nave}; nunca
+ * Fábrica de naves. El cliente pide un  TipoNave y recibe una Nave; nunca
  * necesita conocer ni instanciar las clases concretas.
  *
- * <p><b>Garantía:</b> toda nave creada tiene la configuración inicial válida de su tipo
+ * Garantía: toda nave creada tiene la configuración inicial válida de su tipo
  * (recursos de la Ficha de Inicio, motor propio y sin tripulantes), y su
- * {@link Nave#getTipo()} coincide con el tipo pedido.</p>
+ * Nave#getTipo() coincide con el tipo pedido.
  *
- * <h2>Cómo agregar un tipo de nave nuevo (cambios localizados)</h2>
- * <ol>
- *   <li>Agregar la constante al enum {@link TipoNave}.</li>
- *   <li>Crear la clase concreta (por ejemplo {@code NaveCientifica extends Nave}) con su
- *       configuración inicial, copiando el esquema de {@link NaveExploradora}.</li>
- *   <li>Registrarla con <b>una sola línea</b> en el constructor de esta fábrica:
- *       {@code registrar(TipoNave.CIENTIFICA, NaveCientifica::new);}</li>
+ * Cómo agregar un tipo de nave nuevo (cambios localizados)
+ * Agregar la constante al enum  TipoNave.
+ * Crear la clase concreta (por ejemplo {NaveCientifica extends Nave}) con su
+ * configuración inicial, copiando el esquema de  NaveExploradora}.
+ * Registrarla con una sola líne en el constructor de esta fábrica:
+ *       {@code registrar(TipoNave.CIENTIFICA, NaveCientifica::new);}
  * </ol>
  * <p>No se modifica ninguna clase existente fuera de esos tres puntos ni el método
- * {@link #crear(TipoNave, String)}, que no contiene condicionales por tipo.</p>
+ *  #crear(TipoNave, String)}, que no contiene condicionales por tipo.
  */
 public final class NaveFactory {
 
@@ -44,12 +43,12 @@ public final class NaveFactory {
     /**
      * Crea una nave del tipo pedido.
      *
-     * <p><b>Precondición:</b> {@code tipo} no es nulo, está registrado, y {@code id} no es
-     * nulo ni vacío.<br>
-     * <b>Postcondición:</b> devuelve una nave nueva e independiente, con
-     * {@code getTipo() == tipo}, recursos iniciales del tipo y sin tripulantes.</p>
+     * Precondición:tipo no es nulo, está registrado, y id no es
+     * nulo ni vacío.
+     * Postcondición: devuelve una nave nueva e independiente, con
+     * getTipo() == tipo, recursos iniciales del tipo y sin tripulantes.
      *
-     * @throws IllegalArgumentException si se viola la precondición
+     * @throws IllegalArgumentException si se rompe la precondición
      */
     public Nave crear(TipoNave tipo, String id) {
         if (tipo == null) {
@@ -61,8 +60,7 @@ public final class NaveFactory {
         }
         Nave nave = constructor.apply(id, new MotorWarp());
         if (nave.getTipo() != tipo) { // chequeo de la postcondición
-            throw new IllegalStateException("La fábrica produjo una nave de tipo " + nave.getTipo()
-                    + " al pedirse " + tipo);
+            throw new IllegalStateException("La fábrica produjo una nave de tipo " + nave.getTipo() + " al pedirse " + tipo);
         }
         return nave;
     }

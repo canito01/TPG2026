@@ -3,10 +3,6 @@ package modelo.motor;
 import modelo.asistente.TransicionInvalidaException;
 
 /**
- * Motor Warp (E1-02, UML «Context» MotorWarp). Guarda el estado actual y
- * DELEGA en el cada accion: no hay if/switch sobre estados. La tabla de
- * transiciones y el contrato de cada accion estan en EstadoMotor.
- *
  * Accion no permitida en el estado actual: el motor queda igual y se lanza
  * TransicionInvalidaException (no comprobada, de dominio) para que el asistente
  * la capture y la registre en la bitacora.

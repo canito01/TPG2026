@@ -8,26 +8,10 @@ import modelo.motor.MotorWarp;
 import modelo.tripulacion.Tripulante;
 
 /**
- * Abstracción común de todas las naves: identidad, tipo, recursos, motor y tripulación.
+ * Abstraccion común de todas las naves: identidad, tipo, recursos, motor y tripulación.
  *
- * <p>Las naves se crean mediante {@code fabrica.NaveFactory}; el código cliente no debe
- * instanciar las clases concretas directamente.</p>
- *
- * <h2>Invariantes de clase</h2>
- * <ul>
- *   <li>{@code id} no es nulo ni vacío y no cambia nunca.</li>
- *   <li>{@code tipo}, {@code recursos} y {@code motor} no son nulos y no se reemplazan.</li>
- *   <li>La tripulación nunca es nula ni contiene elementos nulos.</li>
- *   <li>Los recursos cumplen siempre las invariantes de {@link Recursos}.</li>
- * </ul>
- *
- * <h2>Encapsulación</h2>
- * <p>Los atributos son privados. {@link #getRecursos()} entrega el componente de recursos, que
- * se protege a sí mismo: toda modificación pasa por sus operaciones validadas, de modo que la
- * nave nunca queda en un estado inválido. La lista de tripulantes se entrega como vista de
- * solo lectura.</p>
- *
- * <p>Esta clase no depende de consola ni de Swing.</p>
+ * Las naves se crean con{@code fabrica.NaveFactory}; el código cliente no deberia
+ * instanciar las clases concretas directamente.
  */
 public abstract class Nave {
 
@@ -38,8 +22,8 @@ public abstract class Nave {
     private final List<Tripulante> tripulacion = new ArrayList<>();
 
     /**
-     * <p><b>Precondición:</b> ningún argumento es nulo y {@code id} no está en blanco.<br>
-     * <b>Postcondición:</b> la nave queda con los componentes indicados y sin tripulantes.</p>
+     * Precondición: ningún argumento es nulo y {@code id} no está en blanco.
+     * Postcondición: la nave queda con los componentes indicados y sin tripulantes.
      *
      * @throws IllegalArgumentException si se viola la precondición
      */
@@ -80,8 +64,8 @@ public abstract class Nave {
     /**
      * Incorpora un tripulante a la nave.
      *
-     * <p><b>Precondición:</b> {@code tripulante != null}.<br>
-     * <b>Postcondición:</b> el tripulante queda al final de la tripulación.</p>
+     * Precondición: {@code tripulante != null}.
+     * Postcondición: el tripulante queda al final de la tripulación.
      *
      * @throws IllegalArgumentException si el tripulante es nulo
      */

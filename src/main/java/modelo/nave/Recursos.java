@@ -3,27 +3,27 @@ package modelo.nave;
 /**
  * Recursos de una nave: combustible, energía y desgaste (todos enteros).
  *
- * <h2>Invariantes de clase</h2>
- * <ul>
- *   <li>{@code 0 <= combustible <= MAXIMO}</li>
- *   <li>{@code 0 <= energia <= MAXIMO}</li>
- *   <li>{@code 0 <= desgaste <= MAXIMO}</li>
- *   <li>{@link #requiereMantenimiento()} es verdadero si y solo si
- *       {@code desgaste >= UMBRAL_MANTENIMIENTO}</li>
- * </ul>
+ * Invariantes de clase</
+ *
+ *   0 <= combustible <= MAXIMO
+ *   0 <= energia <= MAXIMO
+ *   0 <= desgaste <= MAXIMO
+ *   #requiereMantenimiento() es verdadero si y solo si
+ *    desgaste >= UMBRAL_MANTENIMIENTO
+ *
  * Las invariantes se cumplen al terminar el constructor y antes y después de cada operación
  * pública. El estado es privado, por lo que solo estas operaciones pueden modificarlo.
  *
- * <h2>Garantía común de las operaciones que modifican</h2>
- * <p>Si una operación no puede completarse sin violar un límite, lanza
- * {@link RecursoFueraDeRangoException} y el objeto queda <b>exactamente como estaba</b>
+ * Garantía común de las operaciones que modifican
+ * Si una operación no puede completarse sin violar un límite, lanza
+ *  RecursoFueraDeRangoException y el objeto queda exactamente como estaba
  * (sin cambios parciales). Si el argumento no cumple la precondición (valor negativo o
- * nulo según el método), lanza {@link IllegalArgumentException} y tampoco modifica nada.</p>
+ * nulo según el método), lanza  IllegalArgumentException} y tampoco modifica nada.
  *
- * <p>Las consultas {@code puede...} permiten decidir de antemano, sin lanzar excepciones,
- * si una operación sería aceptada.</p>
+ * Las consultas  puede permitir decidir de antemano, sin lanzar excepciones,
+ * si una operación sería aceptada.
  *
- * <p>Esta clase no depende de consola ni de Swing.</p>
+ * Esta clase no depende de consola ni de Swing.
  */
 public class Recursos {
 
@@ -43,11 +43,11 @@ public class Recursos {
     /**
      * Crea recursos con valores iniciales.
      *
-     * <p><b>Precondición:</b> cada valor está en {@code [MINIMO, MAXIMO]}.<br>
-     * <b>Postcondición:</b> los recursos quedan con los valores indicados y se cumplen las
-     * invariantes.</p>
+     * Precondición: cada valor está en  [MINIMO, MAXIMO]}.<br>
+     * Postcondición: los recursos quedan con los valores indicados y se cumplen las
+     * invariantes.
      *
-     * @throws RecursoFueraDeRangoException si algún valor está fuera de {@code [0, 100]}
+     * @throws RecursoFueraDeRangoException si algún valor está fuera de  [0, 100]}
      */
     public Recursos(int combustible, int energia, int desgaste) {
         validarRango("combustible", combustible);
@@ -73,37 +73,37 @@ public class Recursos {
         return desgaste;
     }
 
-    /** @return {@code true} si el desgaste es {@value #UMBRAL_MANTENIMIENTO} o superior */
+    /** @return  true si el desgaste es  UMBRAL_MANTENIMIENTO o superior */
     public boolean requiereMantenimiento() {
         return desgaste >= UMBRAL_MANTENIMIENTO;
     }
 
     /**
      * Copia independiente del estado actual. Útil para tomar una instantánea antes de una
-     * operación (por ejemplo, para calcular lo consumido por una misión).
+     * operacin (por ejemplo, para calcular lo consumido por una misión).
      */
     public Recursos copia() {
         return new Recursos(combustible, energia, desgaste);
     }
 
-    /** @return {@code true} si {@link #cargarCombustible(int)} con esa cantidad sería aceptada */
+    /** @return  verdadero si  #cargarCombustible(int) con esa cantidad sería aceptada */
     public boolean puedeCargarCombustible(int cantidad) {
         return cantidad > 0 && entraEnRango((long) combustible + cantidad);
     }
 
-    /** @return {@code true} si {@link #cargarEnergia(int)} con esa cantidad sería aceptada */
+    /** @return  true si  #cargarEnergia(int) con esa cantidad sería aceptada */
     public boolean puedeCargarEnergia(int cantidad) {
         return cantidad > 0 && entraEnRango((long) energia + cantidad);
     }
 
-    /** @return {@code true} si {@link #consumir(int, int)} con esas cantidades sería aceptada */
+    /** @return  true si  #consumir(int, int)} con esas cantidades sería aceptada */
     public boolean puedeConsumir(int combustibleAConsumir, int energiaAConsumir) {
         return combustibleAConsumir >= 0 && energiaAConsumir >= 0
                 && entraEnRango((long) combustible - combustibleAConsumir)
                 && entraEnRango((long) energia - energiaAConsumir);
     }
 
-    /** @return {@code true} si {@link #desgastar(int)} con esa cantidad sería aceptada */
+    /** @return  true si  #desgastar(int) con esa cantidad sería aceptada */
     public boolean puedeDesgastar(int cantidad) {
         return cantidad > 0 && entraEnRango((long) desgaste + cantidad);
     }
@@ -113,11 +113,11 @@ public class Recursos {
     /**
      * Suma combustible.
      *
-     * <p><b>Precondición:</b> {@code cantidad > 0} y {@code combustible + cantidad <= MAXIMO}.<br>
-     * <b>Postcondición:</b> {@code combustible = combustible_anterior + cantidad}; energía y
-     * desgaste no cambian.</p>
+     * Precondición:  cantidad > 0} y  combustible + cantidad <= MAXIMO}.<br>
+     * Postcondición:  combustible = combustible_anterior + cantidad}; energía y
+     * desgaste no cambian.
      *
-     * @throws IllegalArgumentException     si {@code cantidad <= 0}
+     * @throws IllegalArgumentException     si  cantidad <= 0}
      * @throws RecursoFueraDeRangoException si se superaría la capacidad máxima
      */
     public void cargarCombustible(int cantidad) {
@@ -130,11 +130,11 @@ public class Recursos {
     /**
      * Suma energía.
      *
-     * <p><b>Precondición:</b> {@code cantidad > 0} y {@code energia + cantidad <= MAXIMO}.<br>
-     * <b>Postcondición:</b> {@code energia = energia_anterior + cantidad}; combustible y
-     * desgaste no cambian.</p>
+     * Precondición:  cantidad > 0} y  energia + cantidad <= MAXIMO}.<br>
+     * Postcondición:  energia = energia_anterior + cantidad}; combustible y
+     * desgaste no cambian.
      *
-     * @throws IllegalArgumentException     si {@code cantidad <= 0}
+     * @throws IllegalArgumentException     si  cantidad <= 0}
      * @throws RecursoFueraDeRangoException si se superaría la capacidad máxima
      */
     public void cargarEnergia(int cantidad) {
@@ -145,13 +145,13 @@ public class Recursos {
     }
 
     /**
-     * Consume combustible y energía de forma <b>atómica</b>: o se descuentan ambos o no se
+     * Consume combustible y energía de forma atómica: o se descuentan ambos o no se
      * descuenta ninguno.
      *
-     * <p><b>Precondición:</b> ambas cantidades {@code >= 0}, y {@code combustible >= combustibleAConsumir}
-     * y {@code energia >= energiaAConsumir}.<br>
-     * <b>Postcondición:</b> cada recurso disminuye exactamente en la cantidad indicada; el
-     * desgaste no cambia.</p>
+     * Precondición: ambas cantidades  >= 0}, y  combustible >= combustibleAConsumir}
+     * y  energia >= energiaAConsumir}.<br>
+     * Postcondición: cada recurso disminuye exactamente en la cantidad indicada; el
+     * desgaste no cambia.
      *
      * @throws IllegalArgumentException     si alguna cantidad es negativa
      * @throws RecursoFueraDeRangoException si alguno de los recursos no alcanza
@@ -171,11 +171,11 @@ public class Recursos {
     /**
      * Suma desgaste.
      *
-     * <p><b>Precondición:</b> {@code cantidad > 0} y {@code desgaste + cantidad <= MAXIMO}.<br>
-     * <b>Postcondición:</b> {@code desgaste = desgaste_anterior + cantidad}; combustible y
-     * energía no cambian.</p>
+     * Precondición:  cantidad > 0} y  desgaste + cantidad <= MAXIMO}.<br>
+     * Postcondición:  desgaste = desgaste_anterior + cantidad}; combustible y
+     * energía no cambian.
      *
-     * @throws IllegalArgumentException     si {@code cantidad <= 0}
+     * @throws IllegalArgumentException     si  cantidad <= 0}
      * @throws RecursoFueraDeRangoException si el desgaste superaría el máximo
      */
     public void desgastar(int cantidad) {
@@ -188,8 +188,8 @@ public class Recursos {
     /**
      * Realiza el mantenimiento de la nave.
      *
-     * <p><b>Postcondición:</b> {@code desgaste == 0} (y por lo tanto
-     * {@code requiereMantenimiento() == false}); combustible y energía no cambian.</p>
+     * postcondición:  desgaste == 0} (y por lo tanto
+     *  requiereMantenimiento() == false}); combustible y energía no cambian.
      */
     public void realizarMantenimiento() {
         desgaste = MINIMO;
@@ -222,8 +222,8 @@ public class Recursos {
     }
 
     /**
-     * Calcula {@code actual + delta} sin modificar nada; si el resultado no entra en
-     * {@code [MINIMO, MAXIMO]} lanza {@link RecursoFueraDeRangoException}. Usa {@code long}
+     * Calcula  actual + delta sin modificar nada; si el resultado no entra en
+     *  [MINIMO, MAXIMO] lanza  RecursoFueraDeRangoException}. Usa  long
      * para que valores enormes no desborden.
      */
     private static int resultado(String nombre, int actual, long delta) {

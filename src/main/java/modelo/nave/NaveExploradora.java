@@ -2,7 +2,7 @@ package modelo.nave;
 
 import modelo.motor.MotorWarp;
 
-/** Nave exploradora. Configuración inicial: combustible 60, energía 80, desgaste 0. */
+/** Nave exploradora: combustible 60, energía 80, desgaste 0. */
 public class NaveExploradora extends Nave {
 
     public static final int COMBUSTIBLE_INICIAL = 60;

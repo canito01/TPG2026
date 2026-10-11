@@ -2,7 +2,7 @@ package modelo.nave;
 
 import modelo.motor.MotorWarp;
 
-/** Nave de combate. Configuración inicial: combustible 80, energía 100, desgaste 0. */
+/** Nave de combate: combustible 80, energía 100, desgaste 0. */
 public class NaveCombate extends Nave {
 
     public static final int COMBUSTIBLE_INICIAL = 80;
