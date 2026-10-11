@@ -1,5 +1,7 @@
 package modelo.misiones;
 
+import modelo.asistente.AsistenteDeComando;
+
 public abstract class Mision {
 
     private String nombre;
@@ -83,5 +85,4 @@ public abstract class Mision {
     public String getNombre() {
         return this.nombre;
     }
-}
 }

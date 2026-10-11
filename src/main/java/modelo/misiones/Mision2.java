@@ -1,5 +1,7 @@
 package modelo.misiones;
 
+import modelo.asistente.AsistenteDeComando;
+
 public class Mision2 extends Mision {
 
     public Mision2() {

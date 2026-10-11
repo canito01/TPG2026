@@ -1,9 +1,11 @@
 package modelo.misiones;
 
+import modelo.asistente.AsistenteDeComando;
+
 public class Mision3 extends Mision {
 
     public Mision3() {
-        super("M3);
+        super("M3");
     }
 
     @Override
