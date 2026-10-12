@@ -150,3 +150,32 @@ Para asegurar una correcta ejecución sin conflictos de compatibilidad:
 
 ---
 
+## 6. Etiqueta de la Entrega
+
+Esta entrega se identifica con la etiqueta:
+
+* **Nombre del tag:** `entrega-1`
+* **Comando para posicionarse en la versión entregada:**
+  ```bash
+  git checkout entrega-1
+  ```
+* **Comando para verificar la etiqueta:**
+  ```bash
+  git tag -l "entrega-*"
+  ```
+
+---
+
+## 7. Documentación (`docs/`)
+
+La documentación se encuentra en la carpeta [`docs/`](docs/):
+
+* **Informe Técnico:** [`docs/informe.md`](docs/informe.md)  
+  *Justificación del diseño, responsabilidades de clases, contratos, invariantes y aplicación de los patrones Factory, Decorator, State y Template Method.*
+* **Registro de Uso de Inteligencia Artificial:** [`docs/uso-ia.md`](docs/uso-ia.md)  
+  *Bitácora detallada de consultas a herramientas de IA, revisiones del equipo y verificaciones según la Sección 8 de las Reglas Operativas.*
+* **Diagrama de Clases UML:**
+  * **Código fuente PlantUML:** [`docs/diagrama_uml_tpg_e1.puml`](docs/diagrama_uml_tpg_e1.puml)
+  * **Vectorial SVG (alta resolución y zoom):** [`docs/diagrama_uml_tpg_e1.svg`](docs/diagrama_uml_tpg_e1.svg)
+  * **Imagen PNG:** [`docs/diagrama_uml_tpg_e1.png`](docs/diagrama_uml_tpg_e1.png)
+
