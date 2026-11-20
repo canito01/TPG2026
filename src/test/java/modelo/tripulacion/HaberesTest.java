@@ -1,8 +1,11 @@
 package modelo.tripulacion;
 
 import org.junit.jupiter.api.Test;
+import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class HaberesTest {
 
@@ -49,5 +52,37 @@ public class HaberesTest {
         assertThrows(IllegalArgumentException.class, () -> {
             new Tripulante("Tripulante Roto", Cargo.ALFEREZ, Origen.MARCIANO, -5);
         }, "Debería rechazar antigüedades negativas");
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            new Tripulante("Consejero Roto", Cargo.CONSEJERO, Origen.VULCANO, 2, -1);
+        }, "Debería rechazar consejos negativos");
+    }
+
+    @Test
+    public void testEstadoVivoYMuerto() {
+        Tripulante tripulante = new Tripulante("Uhura", Cargo.TENIENTE, Origen.TERRICOLA, 5);
+        assertTrue(tripulante.estaVivo(), "Todo tripulante debe iniciar vivo");
+        tripulante.morir();
+        assertFalse(tripulante.estaVivo(), "Tras morir(), estaVivo() debe devolver false");
+    }
+
+    @Test
+    public void testDesgloseHaberParaVista() {
+        Tripulante consejero = new Tripulante("Spock", Cargo.CONSEJERO, Origen.VULCANO, 4, 3);
+
+        List<ItemHaber> desglose = consejero.obtenerDesgloseHaber();
+        assertEquals(4, desglose.size(), "Debe incluir base, antigüedad, consejos y subsidio");
+        assertEquals(600.0, desglose.get(0).getAporte());
+        assertEquals(120.0, desglose.get(1).getAporte());
+        assertEquals(6.0, desglose.get(2).getAporte());
+        assertEquals(30.0, desglose.get(3).getAporte());
+
+        double sumaDesglose = desglose.stream().mapToDouble(ItemHaber::getAporte).sum();
+        assertEquals(consejero.calcularHaberTotal(), sumaDesglose, "La suma del desglose debe coincidir con el total");
+        assertEquals(756.0, consejero.calcularHaberTotal());
+
+        assertThrows(UnsupportedOperationException.class, () -> {
+            desglose.add(new ItemHaber("Extra", 10));
+        }, "El desglose devuelto debe ser inmutable");
     }
 }

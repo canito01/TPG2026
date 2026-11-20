@@ -1,5 +1,9 @@
 package modelo.tripulacion;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public class BonoConsejero extends HaberDecorator{
 
     private int cantidadConsejos;
@@ -31,5 +35,14 @@ public class BonoConsejero extends HaberDecorator{
             return super.obtenerDetalle() + "\n+ Bono Consejero (" + cantidadConsejos + " consejos): " + getValorBono() + " PG";
         }
         return super.obtenerDetalle(); //si no es consejero o dio 0 consejos, no imprimimos nada
+    }
+
+    @Override
+    public List<ItemHaber> obtenerDesglose(){
+        List<ItemHaber> items = new ArrayList<>(super.obtenerDesglose());
+        if (getValorBono() > 0){
+            items.add(new ItemHaber("Bono Consejero (" + cantidadConsejos + " consejos)", getValorBono()));
+        }
+        return Collections.unmodifiableList(items);
     }
 }
