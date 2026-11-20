@@ -15,3 +15,8 @@ Thumbs.db
 
 # Ignorar archivos PDF
 *.pdf
+
+# Base de datos local H2 (se genera en tiempo de ejecucion, no se versiona)
+data/
+*.mv.db
+*.trace.db

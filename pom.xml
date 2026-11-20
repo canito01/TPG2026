@@ -15,6 +15,13 @@
     </properties>
 
     <dependencies>
+        <!-- Driver JDBC y motor embebido H2 para persistencia de credenciales de usuarios -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.2.224</version>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
