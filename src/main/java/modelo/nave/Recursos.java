@@ -1,5 +1,7 @@
 package modelo.nave;
 
+import util.observer.Sujeto;
+
 /**
  * Recursos de una nave: combustible, energía y desgaste (todos enteros).
  *
@@ -25,7 +27,9 @@ package modelo.nave;
  *
  * Esta clase no depende de consola ni de Swing.
  */
-public class Recursos {
+public class Recursos extends Sujeto {
+
+    private static final String CAMBIO_RECURSOS = "Recursos actualizados";
 
     /** Capacidad máxima de combustible y energía, y valor máximo de desgaste. */
     public static final int MAXIMO = 100;
@@ -61,20 +65,20 @@ public class Recursos {
 
     // ------------------------------------------------------------------ consultas
 
-    public int getCombustible() {
+    public synchronized int getCombustible() {
         return combustible;
     }
 
-    public int getEnergia() {
+    public synchronized int getEnergia() {
         return energia;
     }
 
-    public int getDesgaste() {
+    public synchronized int getDesgaste() {
         return desgaste;
     }
 
     /** @return  true si el desgaste es  UMBRAL_MANTENIMIENTO o superior */
-    public boolean requiereMantenimiento() {
+    public synchronized boolean requiereMantenimiento() {
         return desgaste >= UMBRAL_MANTENIMIENTO;
     }
 
@@ -82,29 +86,29 @@ public class Recursos {
      * Copia independiente del estado actual. Útil para tomar una instantánea antes de una
      * operacin (por ejemplo, para calcular lo consumido por una misión).
      */
-    public Recursos copia() {
+    public synchronized Recursos copia() {
         return new Recursos(combustible, energia, desgaste);
     }
 
     /** @return  verdadero si  #cargarCombustible(int) con esa cantidad sería aceptada */
-    public boolean puedeCargarCombustible(int cantidad) {
+    public synchronized boolean puedeCargarCombustible(int cantidad) {
         return cantidad > 0 && entraEnRango((long) combustible + cantidad);
     }
 
     /** @return  true si  #cargarEnergia(int) con esa cantidad sería aceptada */
-    public boolean puedeCargarEnergia(int cantidad) {
+    public synchronized boolean puedeCargarEnergia(int cantidad) {
         return cantidad > 0 && entraEnRango((long) energia + cantidad);
     }
 
     /** @return  true si  #consumir(int, int)} con esas cantidades sería aceptada */
-    public boolean puedeConsumir(int combustibleAConsumir, int energiaAConsumir) {
+    public synchronized boolean puedeConsumir(int combustibleAConsumir, int energiaAConsumir) {
         return combustibleAConsumir >= 0 && energiaAConsumir >= 0
                 && entraEnRango((long) combustible - combustibleAConsumir)
                 && entraEnRango((long) energia - energiaAConsumir);
     }
 
     /** @return  true si  #desgastar(int) con esa cantidad sería aceptada */
-    public boolean puedeDesgastar(int cantidad) {
+    public synchronized boolean puedeDesgastar(int cantidad) {
         return cantidad > 0 && entraEnRango((long) desgaste + cantidad);
     }
 
@@ -122,9 +126,11 @@ public class Recursos {
      */
     public void cargarCombustible(int cantidad) {
         exigirPositiva("cantidad de combustible", cantidad);
-        int nuevo = resultado("combustible", combustible, cantidad);
-        combustible = nuevo;
-        verificarInvariantes();
+        synchronized (this) {
+            combustible = resultado("combustible", combustible, cantidad);
+            verificarInvariantes();
+        }
+        notificarObservadores(CAMBIO_RECURSOS);
     }
 
     /**
@@ -139,9 +145,11 @@ public class Recursos {
      */
     public void cargarEnergia(int cantidad) {
         exigirPositiva("cantidad de energía", cantidad);
-        int nuevo = resultado("energía", energia, cantidad);
-        energia = nuevo;
-        verificarInvariantes();
+        synchronized (this) {
+            energia = resultado("energía", energia, cantidad);
+            verificarInvariantes();
+        }
+        notificarObservadores(CAMBIO_RECURSOS);
     }
 
     /**
@@ -157,15 +165,36 @@ public class Recursos {
      * @throws RecursoFueraDeRangoException si alguno de los recursos no alcanza
      */
     public void consumir(int combustibleAConsumir, int energiaAConsumir) {
+        consumir(combustibleAConsumir, energiaAConsumir, 0);
+    }
+
+    /**
+     * Descuenta combustible y energía y suma desgaste en una sola operación.
+     * Las cantidades deben ser no negativas. Si algún resultado queda fuera
+     * de rango, se conserva el estado anterior. Si cambia algún valor, se da
+     * un solo aviso con el estado completo ya actualizado.
+     */
+    public void consumir(int combustibleAConsumir, int energiaAConsumir, int desgasteAAgregar) {
         if (combustibleAConsumir < 0 || energiaAConsumir < 0) {
             throw new IllegalArgumentException("Las cantidades a consumir no pueden ser negativas");
         }
-        // Se calculan ambos resultados antes de asignar: si alguno falla, no se toca nada.
-        int nuevoCombustible = resultado("combustible", combustible, -(long) combustibleAConsumir);
-        int nuevaEnergia = resultado("energía", energia, -(long) energiaAConsumir);
-        combustible = nuevoCombustible;
-        energia = nuevaEnergia;
-        verificarInvariantes();
+        if (desgasteAAgregar < 0) {
+            throw new IllegalArgumentException("La cantidad de desgaste no puede ser negativa");
+        }
+        if (combustibleAConsumir == 0 && energiaAConsumir == 0 && desgasteAAgregar == 0) {
+            return;
+        }
+        synchronized (this) {
+            // Calculamos los tres resultados antes de guardar el cambio.
+            int nuevoCombustible = resultado("combustible", combustible, -(long) combustibleAConsumir);
+            int nuevaEnergia = resultado("energía", energia, -(long) energiaAConsumir);
+            int nuevoDesgaste = resultado("desgaste", desgaste, desgasteAAgregar);
+            combustible = nuevoCombustible;
+            energia = nuevaEnergia;
+            desgaste = nuevoDesgaste;
+            verificarInvariantes();
+        }
+        notificarObservadores(CAMBIO_RECURSOS);
     }
 
     /**
@@ -180,9 +209,11 @@ public class Recursos {
      */
     public void desgastar(int cantidad) {
         exigirPositiva("cantidad de desgaste", cantidad);
-        int nuevo = resultado("desgaste", desgaste, cantidad);
-        desgaste = nuevo;
-        verificarInvariantes();
+        synchronized (this) {
+            desgaste = resultado("desgaste", desgaste, cantidad);
+            verificarInvariantes();
+        }
+        notificarObservadores(CAMBIO_RECURSOS);
     }
 
     /**
@@ -192,12 +223,18 @@ public class Recursos {
      *  requiereMantenimiento() == false}); combustible y energía no cambian.
      */
     public void realizarMantenimiento() {
-        desgaste = MINIMO;
-        verificarInvariantes();
+        synchronized (this) {
+            if (desgaste == MINIMO) {
+                return;
+            }
+            desgaste = MINIMO;
+            verificarInvariantes();
+        }
+        notificarObservadores(CAMBIO_RECURSOS);
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         return "Recursos[combustible=" + combustible + ", energia=" + energia
                 + ", desgaste=" + desgaste + "]";
     }

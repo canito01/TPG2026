@@ -179,3 +179,33 @@ La documentación se encuentra en la carpeta [`docs/`](docs/):
   * **Vectorial SVG (alta resolución y zoom):** [`docs/diagrama_uml_tpg_e1.svg`](docs/diagrama_uml_tpg_e1.svg)
   * **Imagen PNG:** [`docs/diagrama_uml_tpg_e1.png`](docs/diagrama_uml_tpg_e1.png)
 
+## Inicio de la Entrega 2: bitácora observable
+
+`Bitacora` extiende `util.observer.Sujeto`. Se pueden agregar y quitar
+observadores que implementen `actualizar(String mensaje)`: cada evento válido
+se guarda y luego notifica su descripción. Las consultas conservan el orden
+temporal y devuelven copias de solo lectura.
+
+Los clientes que utilizan `AsistenteDeComando` se suscriben mediante
+`agregarObservadorBitacora(observador)` y se desuscriben mediante
+`quitarObservadorBitacora(observador)`. `AsistenteBase` delega ambas operaciones
+en su bitácora, sin exponerla. Al recibir el aviso, el cliente puede consultar
+el historial y los recursos actualizados a través del mismo asistente.
+
+La firma de `Observador` sigue la versión 2 del
+[módulo de la cátedra](https://github.com/MicaelaRasso/TrabajoIntegrador-DestinoYTablero).
+La integración con `Tablero` queda pendiente; compartir una firma no hace que
+interfaces de paquetes distintos sean el mismo tipo. Las futuras vistas deberán
+actualizar Swing mediante `SwingUtilities.invokeLater`.
+
+Después de compilar las pruebas, ejecutar en Linux/macOS:
+
+```bash
+java -cp "target/classes:target/test-classes" modelo.asistente.VerificacionBitacoraObservable
+```
+
+En Windows, reemplazar `:` por `;` en el classpath. Comprueba notificaciones,
+suscripciones, rechazos, copias y registros concurrentes. También verifica
+la suscripción a través de `AsistenteDeComando`, operaciones de recursos y
+motor, y la separación de los avisos entre naves.
+

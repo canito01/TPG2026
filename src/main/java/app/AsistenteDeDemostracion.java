@@ -5,11 +5,14 @@ import java.util.Collections;
 import java.util.List;
 
 import modelo.asistente.AsistenteDeComando;
+import modelo.asistente.Bitacora;
 import modelo.asistente.Evento;
 import modelo.asistente.Resultado;
 import modelo.asistente.ResumenRecursos;
 import modelo.asistente.TransicionInvalidaException;
 import modelo.motor.MotorWarp;
+import modelo.nave.Recursos;
+import util.observer.Observador;
 
 /**
  * Asistente SOLO para la demostracion (no es el de Agustin). Muestra como el
@@ -25,7 +28,10 @@ class AsistenteDeDemostracion implements AsistenteDeComando {
 
     private final String naveId;
     private final MotorWarp motor = new MotorWarp();
+    // En la demostracion el estado de recursos es fijo.
+    private final Recursos recursos = new Recursos(0, 0, 0);
     private final List<String> registro = new ArrayList<String>();
+    private final Bitacora bitacora = new Bitacora();
     private int rechazos = 0;
 
     AsistenteDeDemostracion(String naveId) {
@@ -50,7 +56,18 @@ class AsistenteDeDemostracion implements AsistenteDeComando {
 
     @Override
     public ResumenRecursos consultarRecursos() {
-        return new ResumenRecursos(0, 0, 0, false);
+        return new ResumenRecursos(recursos.getCombustible(), recursos.getEnergia(),
+                recursos.getDesgaste(), recursos.requiereMantenimiento());
+    }
+
+    @Override
+    public void agregarObservadorRecursos(Observador observador) {
+        recursos.agregarObservador(observador);
+    }
+
+    @Override
+    public void quitarObservadorRecursos(Observador observador) {
+        recursos.quitarObservador(observador);
     }
 
     @Override
@@ -139,22 +156,36 @@ class AsistenteDeDemostracion implements AsistenteDeComando {
 
     @Override
     public void registrarEvento(String descripcion) {
+        if (descripcion == null || descripcion.isBlank()) {
+            throw new IllegalArgumentException("El evento debe tener una descripcion.");
+        }
         registro.add(descripcion);
+        bitacora.registrar(descripcion);
     }
 
     @Override
     public List<Evento> consultarBitacora() {
-        return Collections.emptyList();
+        return bitacora.getEventos();
+    }
+
+    @Override
+    public void agregarObservadorBitacora(Observador observador) {
+        bitacora.agregarObservador(observador);
+    }
+
+    @Override
+    public void quitarObservadorBitacora(Observador observador) {
+        bitacora.quitarObservador(observador);
     }
 
     private boolean cambio(String antes, String accion) {
-        registro.add("CAMBIO    " + antes + " -> " + estadoDelMotor() + " (" + accion + ")");
+        registrarEvento("CAMBIO    " + antes + " -> " + estadoDelMotor() + " (" + accion + ")");
         return true;
     }
 
     private boolean rechazo(TransicionInvalidaException e) {
         rechazos++;
-        registro.add("RECHAZADA " + e.getAccion() + " en '" + e.getEstado() + "'");
+        registrarEvento("RECHAZADA " + e.getAccion() + " en '" + e.getEstado() + "'");
         return false;
     }
 }

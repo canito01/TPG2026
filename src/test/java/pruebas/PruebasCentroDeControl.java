@@ -1,15 +1,17 @@
 package pruebas;
 
-import java.util.Collections;
 import java.util.List;
 
 import modelo.asistente.AsistenteDeComando;
+import modelo.asistente.Bitacora;
 import modelo.asistente.Evento;
 import modelo.asistente.Resultado;
 import modelo.asistente.ResumenRecursos;
+import modelo.nave.Recursos;
 import modelo.universo.AsistenteDuplicadoException;
 import modelo.universo.AsistenteInexistenteException;
 import modelo.universo.CentroDeControl;
+import util.observer.Observador;
 
 /** Pruebas del centro de control: registro por abstraccion, busqueda por id y una sola nave activa. */
 class PruebasCentroDeControl {
@@ -17,10 +19,18 @@ class PruebasCentroDeControl {
     /** Asistente de prueba: otra variante de la abstraccion. */
     private static class AsistenteFalso implements AsistenteDeComando {
         private final String id;
+        private final Bitacora bitacora = new Bitacora();
+        private final Recursos recursos = new Recursos(0, 0, 0);
         AsistenteFalso(String id) { this.id = id; }
         public String getNaveId() { return id; }
         public String consultarEstado() { return null; }
         public ResumenRecursos consultarRecursos() { return null; }
+        public void agregarObservadorRecursos(Observador observador) {
+            recursos.agregarObservador(observador);
+        }
+        public void quitarObservadorRecursos(Observador observador) {
+            recursos.quitarObservador(observador);
+        }
         public Resultado consumir(int combustible, int energia, int desgaste) { return null; }
         public Resultado cargarCombustible(int cantidad) { return null; }
         public Resultado cargarEnergia(int cantidad) { return null; }
@@ -29,8 +39,14 @@ class PruebasCentroDeControl {
         public Resultado saltar() { return null; }
         public Resultado enfriar() { return null; }
         public Resultado terminarEnfriamiento() { return null; }
-        public void registrarEvento(String descripcion) {}
-        public List<Evento> consultarBitacora() { return Collections.emptyList(); }
+        public void registrarEvento(String descripcion) { bitacora.registrar(descripcion); }
+        public List<Evento> consultarBitacora() { return bitacora.getEventos(); }
+        public void agregarObservadorBitacora(Observador observador) {
+            bitacora.agregarObservador(observador);
+        }
+        public void quitarObservadorBitacora(Observador observador) {
+            bitacora.quitarObservador(observador);
+        }
     }
 
     static void correrTodas() {

@@ -5,7 +5,7 @@ import java.util.List;
 import modelo.nave.Nave;
 import modelo.nave.RecursoFueraDeRangoException;
 import modelo.nave.Recursos;
-import modelo.motor.MotorWarp;
+import util.observer.Observador;
 
 /**
  * Implementacion concreta del asistente. Opera una sola nave.
@@ -38,7 +38,7 @@ public class AsistenteBase implements AsistenteDeComando {
 
     @Override
     public ResumenRecursos consultarRecursos() {
-        Recursos r = nave.getRecursos();
+        Recursos r = nave.getRecursos().copia();
         return new ResumenRecursos(
                 r.getCombustible(),
                 r.getEnergia(),
@@ -48,26 +48,23 @@ public class AsistenteBase implements AsistenteDeComando {
     }
 
     @Override
+    public void agregarObservadorRecursos(Observador observador) {
+        nave.getRecursos().agregarObservador(observador);
+    }
+
+    @Override
+    public void quitarObservadorRecursos(Observador observador) {
+        nave.getRecursos().quitarObservador(observador);
+    }
+
+    @Override
     public Resultado consumir(int combustible, int energia, int desgaste) {
         validarNoNegativo("combustible", combustible);
         validarNoNegativo("energia", energia);
         validarNoNegativo("desgaste", desgaste);
 
         try {
-            // primero consumimos combustible y energia (atomico en Recursos)
-            nave.getRecursos().consumir(combustible, energia);
-            // si paso, aplicamos el desgaste
-            if (desgaste > 0) {
-                try {
-                    nave.getRecursos().desgastar(desgaste);
-                } catch (RecursoFueraDeRangoException e) {
-                    // el consumo ya se aplico pero el desgaste no entra
-                    // Recursos no tiene rollback asi que queda registrado como rechazo
-                    String msg = "Desgaste rechazado: " + e.getMessage();
-                    bitacora.registrar(msg);
-                    return new Resultado(false, msg);
-                }
-            }
+            nave.getRecursos().consumir(combustible, energia, desgaste);
             String msg = "Consumo aplicado: combustible=" + combustible
                     + ", energia=" + energia + ", desgaste=" + desgaste;
             bitacora.registrar(msg);
@@ -150,6 +147,16 @@ public class AsistenteBase implements AsistenteDeComando {
     @Override
     public List<Evento> consultarBitacora() {
         return bitacora.getEventos();
+    }
+
+    @Override
+    public void agregarObservadorBitacora(Observador observador) {
+        bitacora.agregarObservador(observador);
+    }
+
+    @Override
+    public void quitarObservadorBitacora(Observador observador) {
+        bitacora.quitarObservador(observador);
     }
 
     // ---- metodos internos ----
