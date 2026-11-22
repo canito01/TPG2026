@@ -1,5 +1,7 @@
 package modelo.tripulacion;
 
+import java.util.List;
+
 public abstract class HaberDecorator implements ConceptoHaber{
 
     protected ConceptoHaber envuelto; //el concepto que estamos envolviendo
@@ -18,5 +20,10 @@ public abstract class HaberDecorator implements ConceptoHaber{
     @Override
     public String obtenerDetalle(){
         return envuelto.obtenerDetalle(); //igual que con el total del sueldo
+    }
+
+    @Override
+    public List<ItemHaber> obtenerDesglose(){
+        return envuelto.obtenerDesglose();
     }
 }

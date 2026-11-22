@@ -1,5 +1,8 @@
 package modelo.tripulacion;
 
+import java.util.Collections;
+import java.util.List;
+
 public class SueldoBase implements ConceptoHaber{
 
     private Tripulante tripulante;
@@ -26,5 +29,12 @@ public class SueldoBase implements ConceptoHaber{
     @Override
     public String obtenerDetalle(){
         return "Sueldo Base (" + tripulante.getCargo() + "): " + getValorBase() + " PG";
+    }
+
+    @Override
+    public List<ItemHaber> obtenerDesglose(){
+        return Collections.singletonList(
+                new ItemHaber("Sueldo Base (" + tripulante.getCargo() + ")", getValorBase())
+        );
     }
 }

@@ -1,5 +1,9 @@
 package modelo.tripulacion;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public class BonoAntiguedad extends HaberDecorator{
 
     public BonoAntiguedad(ConceptoHaber envuelto, Tripulante tripulante){
@@ -29,5 +33,12 @@ public class BonoAntiguedad extends HaberDecorator{
     @Override
     public String obtenerDetalle(){
         return super.obtenerDetalle() + "\n+ Bono Antigüedad (" + tripulante.getAntiguedad() + " años): " + getValorBono() + " PG";
+    }
+
+    @Override
+    public List<ItemHaber> obtenerDesglose(){
+        List<ItemHaber> items = new ArrayList<>(super.obtenerDesglose());
+        items.add(new ItemHaber("Bono Antigüedad (" + tripulante.getAntiguedad() + " años)", getValorBono()));
+        return Collections.unmodifiableList(items);
     }
 }
