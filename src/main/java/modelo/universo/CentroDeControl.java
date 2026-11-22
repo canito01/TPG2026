@@ -91,6 +91,14 @@ public class CentroDeControl {
 
     public int cantidad() { return asistentes.size(); }
 
+    /**
+     * Todas las naves registradas (por su asistente), en orden de registro, para
+     * que los controladores armen sus listas. Lista de solo lectura.
+     */
+    public List<AsistenteDeComando> getAsistentes() {
+        return Collections.unmodifiableList(new ArrayList<AsistenteDeComando>(asistentes.values()));
+    }
+
     /** Ids de nave en orden de registro; lista de solo lectura. */
     public List<String> ids() {
         return Collections.unmodifiableList(new ArrayList<String>(asistentes.keySet()));

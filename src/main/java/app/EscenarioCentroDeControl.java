@@ -24,9 +24,9 @@ class EscenarioCentroDeControl extends EscenarioBase {
         CentroDeControl centro = new CentroDeControl();
 
         out.println("U.1 Alta de naves (por su asistente):");
-        centro.registrar(new AsistenteDeDemostracion("NAVE-1"));
-        centro.registrar(new AsistenteDeDemostracion("NAVE-2"));
-        centro.registrar(new AsistenteDeDemostracion("NAVE-3"));
+        centro.registrar(AsistenteDeDemostracion.enLinea("NAVE-1", 100, 100));
+        centro.registrar(AsistenteDeDemostracion.enLinea("NAVE-2", 100, 100));
+        centro.registrar(AsistenteDeDemostracion.enLinea("NAVE-3", 100, 100));
         out.println("  Registradas: " + centro.ids());
         exigir(centro.cantidad() == 3, "deben haber 3 registradas");
         exigir(!centro.hayActivo(), "al inicio no hay nave activa");
@@ -39,12 +39,20 @@ class EscenarioCentroDeControl extends EscenarioBase {
         exigir(centro.getActivo().getNaveId().equals("NAVE-2"), "la activa debe ser NAVE-2");
         exigir(centro.cantidad() == 3, "siguen registradas las tres");
 
-        out.println("U.3 Devolver cualquiera por id:");
+        out.println("U.3 Lista para los controladores y devolver cualquiera por id:");
+        exigir(centro.getAsistentes().size() == 3, "la lista para los controladores tiene las 3 naves");
+        exigir(centro.getAsistentes().get(0).getNaveId().equals("NAVE-1"), "la lista respeta el orden de registro");
+        try {
+            centro.getAsistentes().clear();
+            exigir(false, "la lista debe ser de solo lectura");
+        } catch (UnsupportedOperationException e) {
+            out.println("  Lista de solo lectura: " + centro.getAsistentes().size() + " naves");
+        }
         out.println("  Pedida NAVE-3: " + centro.obtener("NAVE-3").getNaveId());
 
         out.println("U.4 Rechazos (el centro no cambia):");
         try {
-            centro.registrar(new AsistenteDeDemostracion("NAVE-1"));
+            centro.registrar(AsistenteDeDemostracion.enLinea("NAVE-1", 100, 100));
             exigir(false, "debia rechazar el id duplicado");
         } catch (AsistenteDuplicadoException e) {
             out.println("  " + e.getMessage());

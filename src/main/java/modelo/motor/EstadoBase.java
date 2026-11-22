@@ -1,31 +1,41 @@
 package modelo.motor;
 
-import modelo.asistente.TransicionInvalidaException;
-
 /**
- * Clase abstracta con el rechazo por defecto: toda accion es invalida salvo que
- * el estado concreto la redefina. Asi cada estado declara SOLO sus transiciones
- * validas y no se repite el codigo de rechazo.
+ * Lo que comparten los estados: armar el resultado del turno, hacer la
+ * transicion y las dos reglas que se repiten (salto simple y chequeo de
+ * energia del warp). Cada estado concreto declara solo lo propio.
  */
 abstract class EstadoBase implements EstadoMotor {
 
-    @Override
-    public void prepararSalto(MotorWarp m) { rechazar("prepararSalto"); }
+    /** Cambia el estado del motor y devuelve lo ocurrido. */
+    protected ResultadoDeTurno transicion(MotorWarp m, EstadoMotor nuevo, int casillas, String descripcion) {
+        String antes = nombre();
+        m.setEstado(nuevo);
+        return new ResultadoDeTurno(antes, nuevo.nombre(), casillas, descripcion);
+    }
 
-    @Override
-    public void saltar(MotorWarp m) { rechazar("saltar"); }
+    /** Resultado de un turno que no cambia de estado. */
+    protected ResultadoDeTurno mismoEstado(int casillas, String descripcion) {
+        return new ResultadoDeTurno(nombre(), nombre(), casillas, descripcion);
+    }
 
-    @Override
-    public void enfriar(MotorWarp m) { rechazar("enfriar"); }
+    protected boolean hayEnergiaParaWarp(MotorWarp m) {
+        return m.getNave().getEnergia() >= ParametrosDelMotor.ENERGIA_WARP;
+    }
 
-    @Override
-    public void terminarEnfriamiento(MotorWarp m) { rechazar("terminarEnfriamiento"); }
-
-    @Override
-    public boolean esDisponible() { return false; }
-
-    /** No toca el motor: la accion no permitida no tiene efecto, solo se informa. */
-    protected void rechazar(String accion) {
-        throw new TransicionInvalidaException(nombre(), accion);
+    /**
+     * Salto simple: consume 2 de combustible y avanza 1 casilla. Si no alcanza el
+     * combustible no se mueve y lo informa (el estado no cambia).
+     */
+    protected ResultadoDeTurno saltoSimple(MotorWarp m) {
+        SistemasDeLaNave nave = m.getNave();
+        if (nave.getCombustible() < ParametrosDelMotor.COMBUSTIBLE_SALTO_SIMPLE) {
+            return mismoEstado(0, "Salto simple imposible: no alcanza el combustible (hacen falta "
+                    + ParametrosDelMotor.COMBUSTIBLE_SALTO_SIMPLE + "); la nave no avanza");
+        }
+        nave.consumirCombustible(ParametrosDelMotor.COMBUSTIBLE_SALTO_SIMPLE);
+        int avanzo = nave.avanzar(ParametrosDelMotor.CASILLAS_SALTO_SIMPLE);
+        return mismoEstado(avanzo, "Salto simple: avanza " + avanzo + " casilla y consume "
+                + ParametrosDelMotor.COMBUSTIBLE_SALTO_SIMPLE + " de combustible");
     }
 }
