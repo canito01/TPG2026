@@ -9,66 +9,80 @@ import modelo.asistente.Bitacora;
 import modelo.asistente.Evento;
 import modelo.asistente.Resultado;
 import modelo.asistente.ResumenRecursos;
-import modelo.asistente.TransicionInvalidaException;
 import modelo.motor.MotorWarp;
-import modelo.nave.Recursos;
+import modelo.motor.ResultadoDeTurno;
+import modelo.navegacion.Coordenada;
+import modelo.navegacion.PlanificadorDeRuta;
+import modelo.tablero.Tablero;
+import modelo.tablero.TableroStub;
 import util.observer.Observador;
 
 /**
  * Asistente SOLO para la demostracion (no es el de Agustin). Muestra como el
- * asistente real usa el motor, tal como indica el UML:
- *  - opera una sola nave (aca, solo su motor);
- *  - si el motor acepta la accion, registra el cambio (estado antes -> despues);
- *  - si el motor lanza TransicionInvalidaException (ExcepcionDominio), la captura
- *    y la registra como rechazo.
- * No imprime: guarda su registro en una lista que los escenarios muestran.
- * Cuando exista el asistente real (AsistenteBase), los escenarios usan ese.
+ * asistente real usa el motor: pide el turno (saltar / saltarWarp) y registra
+ * en su bitacora lo que el motor informa en el ResultadoDeTurno. Opera una sola
+ * nave. No imprime: guarda su registro en una lista que los escenarios muestran.
  */
 class AsistenteDeDemostracion implements AsistenteDeComando {
 
-    private final String naveId;
-    private final MotorWarp motor = new MotorWarp();
-    // En la demostracion el estado de recursos es fijo.
-    private final Recursos recursos = new Recursos(0, 0, 0);
+    private final NaveSimulada nave;
+    private final MotorWarp motor;
     private final List<String> registro = new ArrayList<String>();
     private final Bitacora bitacora = new Bitacora();
-    private int rechazos = 0;
+    private String estadoActual = "Disponible";
 
-    AsistenteDeDemostracion(String naveId) {
-        this.naveId = naveId;
+    AsistenteDeDemostracion(NaveSimulada nave) {
+        this.nave = nave;
+        this.motor = new MotorWarp(nave);
+    }
+
+    /**
+     * Asistente de una nave que parte de (0,0) con una ruta recta hasta (19,0) sobre un
+     * tablero vacio. Sirve para los escenarios que solo miran el motor.
+     */
+    static AsistenteDeDemostracion enLinea(String naveId, int combustible, int energia) {
+        Tablero tablero = new TableroStub(0L);
+        NaveSimulada nave = new NaveSimulada(naveId, combustible, energia, new Coordenada(0, 0), tablero);
+        nave.setRuta(new PlanificadorDeRuta(tablero).planificar(new Coordenada(0, 0), new Coordenada(19, 0)));
+        return new AsistenteDeDemostracion(nave);
     }
 
     @Override
-    public String getNaveId() { return naveId; }
+    public String getNaveId() { return nave.getId(); }
 
-    String estadoDelMotor() { return motor.getEstado().nombre(); }
-
-    boolean estaDisponible() { return motor.estaDisponible(); }
-
-    int cantidadRechazos() { return rechazos; }
+    NaveSimulada getNave() { return nave; }
 
     List<String> getRegistro() { return Collections.unmodifiableList(registro); }
 
+    ResultadoDeTurno turnoSaltar() { return registrar(motor.saltar()); }
+
+    ResultadoDeTurno saltarWarp() { return registrar(motor.saltarWarp()); }
+
+    private ResultadoDeTurno registrar(ResultadoDeTurno r) {
+        estadoActual = r.getEstadoActual();
+        String linea = r + " | pos=" + nave.getPosicion() + " comb=" + nave.getCombustible()
+                + " ener=" + nave.getEnergia() + " desg=" + nave.getDesgaste();
+        registro.add(linea);
+        bitacora.registrar(linea);
+        return r;
+    }
+
     @Override
     public String consultarEstado() {
-        return estadoDelMotor();
+        return estadoActual;
     }
 
     @Override
     public ResumenRecursos consultarRecursos() {
-        return new ResumenRecursos(recursos.getCombustible(), recursos.getEnergia(),
-                recursos.getDesgaste(), recursos.requiereMantenimiento());
+        return new ResumenRecursos(nave.getCombustible(), nave.getEnergia(),
+                nave.getDesgaste(), nave.getDesgaste() >= 80);
     }
 
     @Override
-    public void agregarObservadorRecursos(Observador observador) {
-        recursos.agregarObservador(observador);
-    }
+    public void agregarObservadorRecursos(Observador observador) { }
 
     @Override
-    public void quitarObservadorRecursos(Observador observador) {
-        recursos.quitarObservador(observador);
-    }
+    public void quitarObservadorRecursos(Observador observador) { }
 
     @Override
     public Resultado consumir(int combustible, int energia, int desgaste) {
@@ -92,73 +106,30 @@ class AsistenteDeDemostracion implements AsistenteDeComando {
 
     @Override
     public Resultado prepararSalto() {
-        String antes = estadoDelMotor();
-        try {
-            motor.prepararSalto();
-            cambio(antes, "prepararSalto");
-            return new Resultado(true, "Salto preparado");
-        } catch (TransicionInvalidaException e) {
-            rechazo(e);
-            return new Resultado(false, e.getMessage());
-        }
+        ResultadoDeTurno r = saltarWarp();
+        return new Resultado(true, r.getDescripcion());
     }
 
     @Override
     public Resultado saltar() {
-        String antes = estadoDelMotor();
-        try {
-            motor.saltar();
-            cambio(antes, "saltar");
-            return new Resultado(true, "Salto ejecutado");
-        } catch (TransicionInvalidaException e) {
-            rechazo(e);
-            return new Resultado(false, e.getMessage());
-        }
+        ResultadoDeTurno r = turnoSaltar();
+        return new Resultado(true, r.getDescripcion());
     }
 
     @Override
     public Resultado enfriar() {
-        String antes = estadoDelMotor();
-        try {
-            motor.enfriar();
-            cambio(antes, "enfriar");
-            return new Resultado(true, "Enfriamiento iniciado");
-        } catch (TransicionInvalidaException e) {
-            rechazo(e);
-            return new Resultado(false, e.getMessage());
-        }
+        ResultadoDeTurno r = saltarWarp();
+        return new Resultado(true, r.getDescripcion());
     }
 
     @Override
     public Resultado terminarEnfriamiento() {
-        String antes = estadoDelMotor();
-        try {
-            motor.terminarEnfriamiento();
-            cambio(antes, "terminarEnfriamiento");
-            return new Resultado(true, "Enfriamiento terminado");
-        } catch (TransicionInvalidaException e) {
-            rechazo(e);
-            return new Resultado(false, e.getMessage());
-        }
-    }
-
-    boolean terminarSalto() {
-        String antes = estadoDelMotor();
-        try {
-            motor.terminarSalto();
-            cambio(antes, "terminarSalto");
-            return true;
-        } catch (TransicionInvalidaException e) {
-            rechazo(e);
-            return false;
-        }
+        ResultadoDeTurno r = saltarWarp();
+        return new Resultado(true, r.getDescripcion());
     }
 
     @Override
     public void registrarEvento(String descripcion) {
-        if (descripcion == null || descripcion.isBlank()) {
-            throw new IllegalArgumentException("El evento debe tener una descripcion.");
-        }
         registro.add(descripcion);
         bitacora.registrar(descripcion);
     }
@@ -176,16 +147,5 @@ class AsistenteDeDemostracion implements AsistenteDeComando {
     @Override
     public void quitarObservadorBitacora(Observador observador) {
         bitacora.quitarObservador(observador);
-    }
-
-    private boolean cambio(String antes, String accion) {
-        registrarEvento("CAMBIO    " + antes + " -> " + estadoDelMotor() + " (" + accion + ")");
-        return true;
-    }
-
-    private boolean rechazo(TransicionInvalidaException e) {
-        rechazos++;
-        registrarEvento("RECHAZADA " + e.getAccion() + " en '" + e.getEstado() + "'");
-        return false;
     }
 }

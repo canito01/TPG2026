@@ -1,134 +1,175 @@
 package pruebas;
 
-import modelo.asistente.TransicionInvalidaException;
-import modelo.motor.EstadoMotor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import app.NaveSimulada;
 import modelo.motor.MotorWarp;
+import modelo.motor.ResultadoDeTurno;
+import modelo.navegacion.Coordenada;
+import modelo.navegacion.PlanificadorDeRuta;
+import modelo.navegacion.Ruta;
+import modelo.tablero.TableroStub;
 
-/** Pruebas del Motor Warp (State): transiciones validas, invalidas sin efecto y contrato. */
-class PruebasMotorWarp {
+/** Pruebas del Motor Warp reescrito (State): ciclo completo, sin energia, aborto, enfriamiento y API publica. */
+public class PruebasMotorWarp {
 
-    // Estados, como se llega a cada uno desde Disponible y que acciones acepta
-    private static final String[] ESTADOS = {"Disponible", "Preparando salto", "En warp", "Enfriamiento"};
-    private static final String[][] CAMINOS = {
-        {},
-        {"prepararSalto"},
-        {"prepararSalto", "saltar"},
-        {"prepararSalto", "saltar", "enfriar"}};
-    private static final String[][] VALIDAS = {
-        {"prepararSalto"},
-        {"saltar"},
-        {"enfriar", "terminarSalto"},
-        {"terminarEnfriamiento"}};
-    private static final String[] ACCIONES = {
-        "prepararSalto", "saltar", "enfriar", "terminarEnfriamiento", "terminarSalto"};
-
-    static void correrTodas() {
+    public static void correrTodas() {
         System.out.println("MotorWarp");
-        try { estadoInicialEsDisponible(); Verificador.ok("estado inicial es Disponible"); }
-        catch (Throwable t) { Verificador.fallo("estado inicial es Disponible", t); }
-        try { secuenciaValidaDeLaFicha(); Verificador.ok("secuencia valida: Disponible > Preparando salto > En warp > Enfriamiento > Disponible"); }
-        catch (Throwable t) { Verificador.fallo("secuencia valida de la Ficha", t); }
-        try { terminarSaltoVuelveADisponible(); Verificador.ok("terminarSalto: el salto termina en Disponible (R3)"); }
-        catch (Throwable t) { Verificador.fallo("terminarSalto: el salto termina en Disponible (R3)", t); }
-        try { transicionesInvalidasSinEfecto(); Verificador.ok("toda accion no permitida: excepcion, sin cambio de estado"); }
-        catch (Throwable t) { Verificador.fallo("toda accion no permitida: excepcion, sin cambio de estado", t); }
-        try { estaDisponibleSoloEnDisponible(); Verificador.ok("estaDisponible() es true solo en Disponible"); }
-        catch (Throwable t) { Verificador.fallo("estaDisponible() es true solo en Disponible", t); }
-        try { motoresIndependientes(); Verificador.ok("dos motores no se afectan entre si"); }
-        catch (Throwable t) { Verificador.fallo("dos motores no se afectan entre si", t); }
+        try { cicloCompleto(); Verificador.ok("ciclo completo: Disponible > Preparando > En warp > Enfriamiento > Disponible"); }
+        catch (Throwable t) { Verificador.fallo("ciclo completo", t); }
+        try { saltoSimpleEnDisponible(); Verificador.ok("salto simple: avanza 1 y consume 2 de combustible"); }
+        catch (Throwable t) { Verificador.fallo("salto simple", t); }
+        try { saltoSimpleEnWarpSigueListo(); Verificador.ok("saltar() en warp avanza 1 y el motor sigue listo"); }
+        catch (Throwable t) { Verificador.fallo("saltar() en warp", t); }
+        try { preparacionSinEnergia(); Verificador.ok("preparacion sin energia: se queda preparando sin avanzar"); }
+        catch (Throwable t) { Verificador.fallo("preparacion sin energia", t); }
+        try { abortoDelSalto(); Verificador.ok("aborto del salto: vuelve a preparar y la preparacion se reinicia"); }
+        catch (Throwable t) { Verificador.fallo("aborto del salto", t); }
+        try { enfriamientoConAmbasOperaciones(); Verificador.ok("enfriamiento: saltar() y saltarWarp() cumplen el turno (3 de desgaste)"); }
+        catch (Throwable t) { Verificador.fallo("enfriamiento con ambas operaciones", t); }
+        try { saltoSimpleSinCombustible(); Verificador.ok("sin combustible el salto simple no mueve la nave"); }
+        catch (Throwable t) { Verificador.fallo("sin combustible", t); }
+        try { warpNoPasaDelDestino(); Verificador.ok("el warp se detiene en el destino (avanza solo lo que falta)"); }
+        catch (Throwable t) { Verificador.fallo("warp en el destino", t); }
+        try { constructorRechazaNaveNula(); Verificador.ok("el motor exige una nave"); }
+        catch (Throwable t) { Verificador.fallo("el motor exige una nave", t); }
+        try { apiPublicaSoloDosOperaciones(); Verificador.ok("la API publica del motor es solo saltar() y saltarWarp()"); }
+        catch (Throwable t) { Verificador.fallo("API publica", t); }
     }
 
-    private static void estadoInicialEsDisponible() {
-        Verificador.igual("Disponible", new MotorWarp().getEstado().nombre(), "estado inicial");
+    /** Nave de prueba en (0,0) con una ruta recta hasta (19,0). */
+    static NaveSimulada nave(int combustible, int energia) {
+        TableroStub t = new TableroStub(0L);
+        NaveSimulada n = new NaveSimulada("T", combustible, energia, new Coordenada(0, 0), t);
+        n.setRuta(new PlanificadorDeRuta(t).planificar(new Coordenada(0, 0), new Coordenada(19, 0)));
+        return n;
     }
 
-    private static void secuenciaValidaDeLaFicha() {
-        MotorWarp m = new MotorWarp();
-        m.prepararSalto();
-        Verificador.igual("Preparando salto", m.getEstado().nombre(), "tras prepararSalto");
-        m.saltar();
-        Verificador.igual("En warp", m.getEstado().nombre(), "tras saltar");
-        m.enfriar();
-        Verificador.igual("Enfriamiento", m.getEstado().nombre(), "tras enfriar");
-        m.terminarEnfriamiento();
-        Verificador.igual("Disponible", m.getEstado().nombre(), "tras terminarEnfriamiento");
+    private static void estados(ResultadoDeTurno r, String antes, String despues, int casillas) {
+        Verificador.igual(antes, r.getEstadoAnterior(), "estado anterior");
+        Verificador.igual(despues, r.getEstadoActual(), "estado actual");
+        Verificador.igual(casillas, r.getCasillasAvanzadas(), "casillas avanzadas");
     }
 
-    private static void terminarSaltoVuelveADisponible() {
-        MotorWarp m = new MotorWarp();
-        m.prepararSalto();
-        m.saltar();
-        m.terminarSalto();
-        Verificador.igual("Disponible", m.getEstado().nombre(), "tras terminarSalto");
-        Verificador.verificar(m.estaDisponible(), "la nave vuelve a estar disponible");
+    private static void cicloCompleto() {
+        NaveSimulada n = nave(100, 100);
+        MotorWarp m = new MotorWarp(n);
+        estados(m.saltarWarp(), "Disponible", "Preparando salto", 0);
+        estados(m.saltarWarp(), "Preparando salto", "En warp", 0);
+        estados(m.saltarWarp(), "En warp", "Enfriamiento", 2);
+        estados(m.saltarWarp(), "Enfriamiento", "Disponible", 0);
+        Verificador.igual(2, n.getPosicion().getX(), "la nave avanzo 2 casillas");
+        Verificador.igual(95, n.getEnergia(), "el salto consumio 5 de energia");
+        Verificador.igual(100, n.getCombustible(), "el warp no consume combustible");
+        Verificador.igual(3, n.getDesgaste(), "el enfriamiento genera 3 de desgaste");
     }
 
-    private static void transicionesInvalidasSinEfecto() {
-        int combinacionesProbadas = 0;
-        for (int i = 0; i < ESTADOS.length; i++) {
-            for (int j = 0; j < ACCIONES.length; j++) {
-                if (esValida(i, ACCIONES[j])) {
-                    continue;
-                }
-                MotorWarp m = llegarA(i);
-                EstadoMotor antes = m.getEstado();
-                String contexto = ACCIONES[j] + " en " + ESTADOS[i];
+    private static void saltoSimpleEnDisponible() {
+        NaveSimulada n = nave(100, 100);
+        ResultadoDeTurno r = new MotorWarp(n).saltar();
+        estados(r, "Disponible", "Disponible", 1);
+        Verificador.igual(98, n.getCombustible(), "combustible");
+        Verificador.igual(100, n.getEnergia(), "el salto simple no consume energia");
+        Verificador.verificar(r.avanzo() && !r.cambioDeEstado(), "avanzo sin cambiar de estado");
+    }
 
-                try {
-                    ejecutar(m, ACCIONES[j]);
-                    Verificador.fallar("deberia rechazar: " + contexto);
-                } catch (TransicionInvalidaException ex) {
-                    Verificador.igual(ESTADOS[i], ex.getEstado(), "estado en la excepcion: " + contexto);
-                    Verificador.igual(ACCIONES[j], ex.getAccion(), "accion en la excepcion: " + contexto);
-                }
-                Verificador.verificar(m.getEstado() == antes, "el estado no debe cambiar (mismo objeto): " + contexto);
-                Verificador.igual(ESTADOS[i], m.getEstado().nombre(), "el nombre no debe cambiar: " + contexto);
-                combinacionesProbadas++;
+    private static void saltoSimpleEnWarpSigueListo() {
+        NaveSimulada n = nave(100, 100);
+        MotorWarp m = new MotorWarp(n);
+        m.saltarWarp();
+        m.saltarWarp();
+        estados(m.saltar(), "En warp", "En warp", 1);
+        Verificador.igual(98, n.getCombustible(), "combustible tras el salto simple");
+        estados(m.saltarWarp(), "En warp", "Enfriamiento", 2);
+        Verificador.igual(3, n.getPosicion().getX(), "1 casilla simple + 2 del warp");
+    }
+
+    private static void preparacionSinEnergia() {
+        NaveSimulada n = nave(100, 4);
+        MotorWarp m = new MotorWarp(n);
+        estados(m.saltarWarp(), "Disponible", "Preparando salto", 0);
+        for (int i = 0; i < 3; i++) {
+            estados(m.saltarWarp(), "Preparando salto", "Preparando salto", 0);
+        }
+        estados(m.saltar(), "Preparando salto", "Preparando salto", 0);
+        Verificador.igual(4, n.getEnergia(), "no se consumio energia");
+        Verificador.igual(0, n.getPosicion().getX(), "la nave no avanzo");
+        n.setEnergia(5);   // exactamente 5 alcanza
+        estados(m.saltarWarp(), "Preparando salto", "En warp", 0);
+    }
+
+    private static void abortoDelSalto() {
+        NaveSimulada n = nave(100, 5);
+        MotorWarp m = new MotorWarp(n);
+        m.saltarWarp();
+        m.saltarWarp();                  // En warp, listo
+        n.consumirEnergia(5);            // se pierde la energia antes de saltar
+        estados(m.saltarWarp(), "En warp", "Preparando salto", 0);
+        Verificador.igual(0, n.getPosicion().getX(), "el aborto no mueve la nave");
+        n.setEnergia(10);
+        estados(m.saltarWarp(), "Preparando salto", "Preparando salto", 0);   // turno 1 de 2 otra vez
+        estados(m.saltarWarp(), "Preparando salto", "En warp", 0);
+    }
+
+    private static void enfriamientoConAmbasOperaciones() {
+        for (int caso = 0; caso < 2; caso++) {
+            NaveSimulada n = nave(100, 100);
+            MotorWarp m = new MotorWarp(n);
+            m.saltarWarp();
+            m.saltarWarp();
+            m.saltarWarp();
+            ResultadoDeTurno r = (caso == 0) ? m.saltar() : m.saltarWarp();
+            estados(r, "Enfriamiento", "Disponible", 0);
+            Verificador.igual(3, n.getDesgaste(), "desgaste del enfriamiento (caso " + caso + ")");
+            Verificador.igual(2, n.getPosicion().getX(), "no avanza mientras se enfria (caso " + caso + ")");
+        }
+    }
+
+    private static void saltoSimpleSinCombustible() {
+        NaveSimulada n = nave(1, 100);
+        ResultadoDeTurno r = new MotorWarp(n).saltar();
+        estados(r, "Disponible", "Disponible", 0);
+        Verificador.igual(1, n.getCombustible(), "no se consumio nada");
+        Verificador.igual(0, n.getPosicion().getX(), "la nave no avanzo");
+        Verificador.verificar(r.getDescripcion().contains("combustible"), "la descripcion explica el motivo");
+    }
+
+    private static void warpNoPasaDelDestino() {
+        TableroStub t = new TableroStub(0L);
+        NaveSimulada n = new NaveSimulada("T", 100, 100, new Coordenada(0, 0), t);
+        List<Coordenada> camino = new ArrayList<Coordenada>();
+        camino.add(new Coordenada(0, 0));
+        camino.add(new Coordenada(1, 0));
+        n.setRuta(new Ruta(camino));
+        MotorWarp m = new MotorWarp(n);
+        m.saltarWarp();
+        m.saltarWarp();
+        estados(m.saltarWarp(), "En warp", "Enfriamiento", 1);
+        Verificador.verificar(n.haLlegado(), "llego al destino");
+    }
+
+    private static void constructorRechazaNaveNula() {
+        try {
+            new MotorWarp(null);
+            Verificador.fallar("debia rechazar la nave nula");
+        } catch (IllegalArgumentException e) {
+            // esperado
+        }
+    }
+
+    private static void apiPublicaSoloDosOperaciones() {
+        List<String> publicos = new ArrayList<String>();
+        Method[] metodos = MotorWarp.class.getDeclaredMethods();
+        for (int i = 0; i < metodos.length; i++) {
+            if (Modifier.isPublic(metodos[i].getModifiers())) {
+                publicos.add(metodos[i].getName());
             }
         }
-        // 4 estados x 5 acciones = 20; validas: 1 + 1 + 2 + 1 = 5; invalidas: 15
-        Verificador.igual(15, combinacionesProbadas, "combinaciones invalidas probadas");
-    }
-
-    private static void estaDisponibleSoloEnDisponible() {
-        for (int i = 0; i < ESTADOS.length; i++) {
-            MotorWarp m = llegarA(i);
-            Verificador.igual(ESTADOS[i], m.getEstado().nombre(), "estado alcanzado");
-            Verificador.igual(i == 0, m.estaDisponible(), "estaDisponible() en " + ESTADOS[i]);
-        }
-    }
-
-    private static void motoresIndependientes() {
-        MotorWarp a = new MotorWarp();
-        MotorWarp b = new MotorWarp();
-        a.prepararSalto();
-        Verificador.igual("Preparando salto", a.getEstado().nombre(), "motor a");
-        Verificador.igual("Disponible", b.getEstado().nombre(), "motor b no se toca");
-    }
-
-    private static MotorWarp llegarA(int estado) {
-        MotorWarp m = new MotorWarp();
-        for (int k = 0; k < CAMINOS[estado].length; k++) {
-            ejecutar(m, CAMINOS[estado][k]);
-        }
-        return m;
-    }
-
-    private static boolean esValida(int estado, String accion) {
-        for (int k = 0; k < VALIDAS[estado].length; k++) {
-            if (VALIDAS[estado][k].equals(accion)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static void ejecutar(MotorWarp m, String accion) {
-        if (accion.equals("prepararSalto")) { m.prepararSalto(); }
-        else if (accion.equals("saltar")) { m.saltar(); }
-        else if (accion.equals("enfriar")) { m.enfriar(); }
-        else if (accion.equals("terminarEnfriamiento")) { m.terminarEnfriamiento(); }
-        else if (accion.equals("terminarSalto")) { m.terminarSalto(); }
-        else { Verificador.fallar("accion desconocida en la prueba: " + accion); }
+        Collections.sort(publicos);
+        Verificador.igual("[saltar, saltarWarp]", publicos.toString(), "metodos publicos del motor");
     }
 }

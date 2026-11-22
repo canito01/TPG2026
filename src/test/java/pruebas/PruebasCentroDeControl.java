@@ -65,6 +65,8 @@ class PruebasCentroDeControl {
         catch (Throwable t) { Verificador.fallo("una variante nueva de asistente se registra sin tocar el centro", t); }
         try { registrarInvalidoLanzaIllegalArgument(); Verificador.ok("asistente nulo o id vacio: se rechaza y el centro no cambia"); }
         catch (Throwable t) { Verificador.fallo("asistente nulo o id vacio: se rechaza y el centro no cambia", t); }
+        try { listaDeAsistentesParaLosControladores(); Verificador.ok("getAsistentes(): lista en orden de registro y de solo lectura"); }
+        catch (Throwable t) { Verificador.fallo("getAsistentes()", t); }
         try { idsEnOrdenYSoloLectura(); Verificador.ok("ids() en orden de registro y de solo lectura"); }
         catch (Throwable t) { Verificador.fallo("ids() en orden de registro y de solo lectura", t); }
     }
@@ -161,6 +163,25 @@ class PruebasCentroDeControl {
             // esperado
         }
         Verificador.igual(0, c.cantidad(), "el centro no cambia");
+    }
+
+    private static void listaDeAsistentesParaLosControladores() throws Exception {
+        CentroDeControl c = new CentroDeControl();
+        AsistenteDeComando a = new AsistenteFalso("A");
+        AsistenteDeComando b = new AsistenteFalso("B");
+        c.registrar(b);
+        c.registrar(a);
+        List<AsistenteDeComando> lista = c.getAsistentes();
+        Verificador.igual(2, lista.size(), "cantidad");
+        Verificador.verificar(lista.get(0) == b && lista.get(1) == a, "orden de registro");
+        try {
+            lista.clear();
+            Verificador.fallar("la lista debe ser de solo lectura");
+        } catch (UnsupportedOperationException e) {
+            // esperado
+        }
+        c.registrar(new AsistenteFalso("C"));
+        Verificador.igual(2, lista.size(), "la lista entregada es una copia: no cambia sola");
     }
 
     private static void idsEnOrdenYSoloLectura() throws Exception {

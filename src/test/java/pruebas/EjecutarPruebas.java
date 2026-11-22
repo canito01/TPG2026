@@ -5,7 +5,10 @@ public class EjecutarPruebas {
 
     public static void main(String[] args) {
         PruebasMotorWarp.correrTodas();
+        PruebasNavegacion.correrTodas();
+        PruebasTablero.correrTodas();
         PruebasCentroDeControl.correrTodas();
+        vista.PruebasVista.correrTodas();
         app.PruebasEscenarios.correrTodas();
         System.out.println();
         System.out.println("Resultado: " + Verificador.getPasaron() + " pasaron, "

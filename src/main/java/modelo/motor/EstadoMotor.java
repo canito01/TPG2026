@@ -1,38 +1,21 @@
 package modelo.motor;
 
 /**
- * Tabla de estados (Aclaracion R3, Enunciado E1-02, Ficha escenario C):
- *
- *   Desde             Accion                  Hacia
- *   Disponible        prepararSalto           Preparando salto
- *   Preparando salto  saltar                  En warp
- *   En warp           enfriar                 Enfriamiento
- *   Enfriamiento      terminarEnfriamiento    Disponible      ("pasa un tiempo")
- *
- * Contrato comun de las cuatro acciones:
- *  - Pre: el estado actual es el "Desde" de la tabla para esa accion.
- *  - Post (exito): el motor queda en el "Hacia" de la tabla.
- *  - Si la Pre no se cumple (accion no permitida en el estado actual) se lanza
- *    TransicionInvalidaException: el motor queda EXACTAMENTE igual. No hay
- *    rechazos silenciosos: el asistente la captura y la registra en la bitacora.
+ * Patron State (Anexo, E1-02): interfaz comun de las fases del Motor Warp.
+ * Cada estado decide por si mismo que hace en un turno con cada operacion y a
+ * que estado pasa: no hay if/switch sobre estados, y un estado nuevo no obliga
+ * a tocar los existentes. Las acciones internas (preparar, saltar en warp,
+ * enfriar) viven dentro de los estados; hacia afuera el motor solo muestra
+ * saltar() y saltarWarp().
  */
 public interface EstadoMotor {
 
-    /** De Disponible. a Preparando salto. */
-    void prepararSalto(MotorWarp m);
+    /** Un turno de la nave con salto simple. */
+    ResultadoDeTurno saltar(MotorWarp m);
 
-    /** De Preparando salto. a En warp. */
-    void saltar(MotorWarp m);
+    /** Un turno de la nave con salto warp. */
+    ResultadoDeTurno saltarWarp(MotorWarp m);
 
-    /** De En warp. a Enfriamiento. */
-    void enfriar(MotorWarp m);
-
-    /** De Enfriamiento. a Disponible. */
-    void terminarEnfriamiento(MotorWarp m);
-
-    /** Nombre del estado, tal como lo nombra el Enunciado: lo usa la bitacora. */
+    /** Nombre de la fase, tal como lo nombra el Enunciado. */
     String nombre();
-
-    /** Post: true solo en Disponible. Lo usan las misiones para verificar que la nave este disponible. */
-    boolean esDisponible();
 }
