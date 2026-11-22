@@ -1,235 +1,135 @@
-# TPG-2026 - Sistema de Naves, Asistentes y Misiones
+# TPG 2026 — Sistema de Naves, Asistentes, Misiones y Universo Dinámico
 
-Trabajo Práctico Grupal de Programación (Entrega 1). Sistema de gestión y control de naves espaciales, simulación de subsistemas de recursos, motor warp, asignación de tripulación con cálculo de haberes y ejecución coordinada de misiones.
+Trabajo Práctico Grupal de Programación (Entregas 1 y 2). Software embarcado de una nave interestelar tripulada con universo dinámico, persistencia de operadores (DAO/DTO + JDBC sobre H2), concurrencia (Productor–Consumidor con monitores) e interfaz gráfica Swing en tiempo real (MVC + Observer).
 
 ---
 
 ## 1. Requisitos de Ejecución
 
-Para compilar y ejecutar el proyecto se requieren las siguientes herramientas instaladas en el entorno local:
-
-* **Java Development Kit (JDK):** Versión **17** o superior (por ejemplo, Eclipse Adoptium Temurin 17, OpenJDK 17 u Oracle JDK 17).
-  * Verificar en terminal con: `java -version` y `javac -version`.
-* **Apache Maven:** Versión **3.8** o superior (o utilizar el Maven embebido provisto por entornos de desarrollo como IntelliJ IDEA, Eclipse o VS Code).
-  * Verificar en terminal con: `mvn -version`.
-* **Git:** Versión **2.30** o superior para la clonación del repositorio y manejo de ramas/etiquetas.
-* **Sistema Operativo:** Multiplataforma (probado y compatible con Windows 10/11, GNU/Linux y macOS).
-* **Recursos de Hardware:** Mínimo 512 MB de memoria RAM disponible para la JVM y 100 MB de espacio en disco.
+* **Java Development Kit (JDK):** Versión **17** o superior (`java -version`, `javac -version`).
+* **Apache Maven:** Versión **3.8** o superior (`mvn -version`) o Maven embebido del IDE (IntelliJ IDEA, Eclipse, VS Code).
+* **Base de datos:** **H2 Database** (`com.h2database:h2:2.2.224`), declarada en [`pom.xml`](pom.xml). Al ser embebida en Java, no requiere instalar ningún servidor externo.
+* **Sistema Operativo:** Windows 10/11, GNU/Linux o macOS.
 
 ---
 
 ## 2. Comandos Maven Necesarios
 
-El ciclo de vida del proyecto se gestiona mediante Maven a través del archivo [`pom.xml`]. Los comandos principales son:
-
-* **Limpiar artefactos generados:**
-  ```bash
-  mvn clean
-  ```
-  Elimina el directorio `target/` y cualquier compilación anterior.
-
-* **Compilar el código fuente principal:**
+* **Compilar el proyecto:**
   ```bash
   mvn compile
   ```
-  Compila las clases ubicadas en `src/main/java/` y genera los binarios `.class` en `target/classes/`.
-
-* **Compilar clases y pruebas:**
+* **Compilar código fuente y pruebas:**
   ```bash
   mvn test-compile
   ```
-  Compila tanto las clases principales como las clases de prueba de `src/test/java/`.
-
-* **Ejecutar la suite de pruebas automatizadas:**
+* **Ejecutar la suite JUnit 5 (incluye persistencia H2, nave, fábrica, recursos y haberes):**
   ```bash
   mvn test
   ```
-  Ejecuta todos los tests unitarios con JUnit 5 mediante el plugin Maven Surefire, reportando resultados y cobertura en consola.
-
-* **Empaquetar la aplicación:**
+* **Empaquetar el proyecto:**
   ```bash
   mvn clean package
   ```
-  Compila, ejecuta las pruebas y genera el archivo JAR en `target/tpg2026-1.0-SNAPSHOT.jar`.
 
 ---
 
-## 3. Forma de Iniciar el Sistema
+## 3. Forma de Iniciar la Aplicación (Entrega 2 — Interfaz Gráfica)
 
-El punto de entrada principal del sistema es la clase [`app.Main`], la cual ejecuta de manera automatizada y secuencial la demostración de los escenarios requeridos por la **Ficha de Inicio**:
+El punto de entrada principal de la Entrega 2 es [`app.MainApp`](src/main/java/app/MainApp.java).
 
-* **Universo / Centro de Control:** Alta de naves, unicidad de nave activa y control de rechazos.
-* **Escenario A (Ejecución correcta):** Creación de naves vía `NaveFactory`, asignación de tripulantes y cálculo de haberes (`Decorator`), ejecución de las misiones `M-01`, `M-02` y `M-03`, e impresión de bitácora y recursos.
-* **Escenario B (Recursos insuficientes):** Demostración de atomicidad (sin cambios parciales) y registro del motivo de rechazo en la bitácora cuando no alcanzan los recursos.
-* **Escenario C (Motor Warp):** Recorrido completo del ciclo de estados del motor (`Disponible -> Preparando salto -> En warp -> Enfriamiento -> Disponible`) y registro de transiciones rechazadas.
-* **Escenario D (Contrato inválido):** Demostración de robustez y preservación de invariantes ante cargas excesivas, consumos fuera de rango o argumentos negativos.
-
-### Opción A: Ejecución desde Terminal (Línea de comandos)
-
-1. Compilar el proyecto:
-   ```bash
-   mvn test-compile
-   ```
-2. Ejecutar la clase principal:
-   * **En Windows (PowerShell / CMD):**
-     ```powershell
-     java -cp "target/classes;target/test-classes" app.Main
-     ```
-   * **En Linux / macOS (Bash / Zsh):**
-     ```bash
-     java -cp "target/classes:target/test-classes" app.Main
-     ```
-
-### Opción B: Ejecución desde el IDE (IntelliJ IDEA / Eclipse / VS Code)
-
+### Ejecución desde IDE
 1. Abrir el proyecto como proyecto Maven (`pom.xml`).
-2. Navegar en el explorador de archivos hasta [`src/main/java/app/Main.java`].
-3. Hacer clic derecho sobre el archivo o el método `main` y seleccionar **Run 'Main.main()'** (o presionar `Shift + F10` en IntelliJ).
+2. Ejecutar `src/main/java/app/MainApp.java` (**Run 'MainApp.main()'**).
 
-**Resultado esperado:** Todos los escenarios deben ejecutarse e imprimir `VERIFICADO`, concluyendo con:
-```text
-Escenarios ejecutados sin fallos.
-```
+### Ejecución desde Terminal
+1. Compilar el proyecto con Maven (`mvn compile`).
+2. Ejecutar incluyendo el driver H2 en el classpath:
+   * **Windows (PowerShell):**
+     ```powershell
+     java -cp "target/classes;$env:USERPROFILE\.m2\repository\com\h2database\h2\2.2.224\h2-2.2.224.jar" app.MainApp
+     ```
+   * **Linux / macOS:**
+     ```bash
+     java -cp "target/classes:$HOME/.m2/repository/com/h2database/h2/2.2.224/h2-2.2.224.jar" app.MainApp
+     ```
+
+### Base de datos y Acceso (Login / Registro)
+* Al iniciar `MainApp`, `ConexionBD` crea automáticamente la base local H2 en `./data/tpg2026` (excluida de Git en `.gitignore`) y aplica el esquema idempotente de [`database/schema.sql`](database/schema.sql).
+* **Alcance de la persistencia:** únicamente se persisten las credenciales de usuario (`nombre_usuario` único y `password_hash` derivado con PBKDF2 + sal aleatoria). Ninguna otra entidad del sistema se persiste.
+* **Flujo de uso en la ventana principal:**
+  1. **Acceso:** registrar un operador nuevo (mín. 3 caracteres de usuario, mín. 4 de contraseña) e iniciar sesión.
+  2. **Pestaña Creación:** primero instanciar la nave (Exploradora, Carguero o Combate) y luego asignar al menos 5 tripulantes incluyendo 1 Capitán.
+  3. **Pestaña Tripulantes:** consultar los tripulantes, su estado (`Vivo` / `Fallecido`), salario total y desglose detallado del Decorator.
+  4. **Pestaña Control de la Nave:** visualizar en tiempo real el tablero 20×20 oficial de la cátedra (`destinoytablero` integrado vía `AdaptadorTableroDestino`), los recursos, la bitácora, lanzar las misiones `M-01`, `M-02` y `M-03` y consultar el historial de informes finales.
+  5. **Pestaña Visor Recóndito:** agregar en vivo `GeneradoraDeEnergia` y `NaveConsumidora` operando sobre la `PlataformaDeCarga` (monitor Productor–Consumidor). Al cerrar la ventana se detienen todos los hilos ordenadamente.
+
+### Puntos de entrada auxiliares
+* **Regresión por consola (Entrega 1 adaptada):** `app.MainDemo` (ejecuta escenarios A, B, C, D, navegación y Centro de Control).
+* **Visor del Universo Paralelo aislado:** `app.MainVisor`.
+* **Tablero en tiempo real aislado:** `app.MainTableroSwing`.
 
 ---
 
 ## 4. Forma de Ejecutar las Verificaciones
 
-El proyecto cuenta con múltiples capas de verificación y pruebas automatizadas:
-
-### 1. Pruebas Unitarias Estándar (JUnit 5 vía Maven)
-Ejecuta la totalidad de los tests unitarios formales:
+### 1. Pruebas Unitarias JUnit 5 (63 tests)
 ```bash
 mvn test
 ```
-* **Qué comprueba:** 46 pruebas automatizadas:
-  * [`NaveFactoryTest`]: Creación por tipo y configuraciones iniciales de la ficha.
-  * [`NaveTest`]: Invariantes de nave, asignación de tripulación e inmutabilidad de listas expuestas.
-  * [`RecursosTest`]: Cargas, consumos atómicos, límites en rango [0, 100], umbral de mantenimiento y precondiciones.
-  * [`HaberesTest`]: Cálculo acumulativo y detalle de sueldos con el patrón Decorator.
+Ejecuta `NaveFactoryTest`, `NaveTest`, `RecursosTest`, `HaberesTest` y `AutenticacionTest` (Escenario **V1**: H2 en memoria y persistencia en disco entre ejecuciones).
 
-### 2. Verificador Integral de Escenarios y Componentes
-Ejecuta la suite de verificación global que valida la máquina de estados, el centro de control y la salida de los escenarios:
-* **En Windows:**
+### 2. Suite Integral de Motor, Navegación, Tablero, Adaptador Destino, Vista y Escenarios (51 aserciones)
+* **Windows:**
   ```powershell
   java -cp "target/classes;target/test-classes" pruebas.EjecutarPruebas
   ```
-* **En Linux / macOS:**
+* **Linux / macOS:**
   ```bash
   java -cp "target/classes:target/test-classes" pruebas.EjecutarPruebas
   ```
-* **Resultado esperado:** `Resultado: 20 pasaron, 0 fallaron`.
+**Resultado esperado:** `Resultado: 51 pasaron, 0 fallaron`.
 
-### 3. Verificación de Inmutabilidad de la Bitácora
-Comprueba la consistencia temporal, inmutabilidad y copias independientes de la bitácora:
-* **En Windows:**
-  ```powershell
-  java -cp "target/classes;target/test-classes" modelo.asistente.VerificacionBitacora
-  ```
-* **En Linux / macOS:**
-  ```bash
-  java -cp "target/classes:target/test-classes" modelo.asistente.VerificacionBitacora
-  ```
-* **Resultado esperado:** `Verificación de bitácora: todos los casos pasaron.`
+### 3. Verificaciones de Módulos de Entrega 2
+*(En Linux/macOS reemplazar `;` por `:` en `-cp`)*
+```powershell
+# MisionesPanel, MisionController e Historial (V2-V6)
+java "-Djava.awt.headless=true" -cp "target/classes;target/test-classes" controlador.VerificacionMisionesPanel
+
+# Elementos del universo, Double Dispatch 3x3 y Creacion MVC (V8-V9)
+java "-Djava.awt.headless=true" -cp "target/classes;target/test-classes" modelo.elementos.VerificacionElementosYCreacion
+
+# PlataformaDeCarga (monitores wait/notifyAll) y Visor (V10-V11)
+java -cp "target/classes;target/test-classes" modelo.concurrencia.VerificacionPlataformaDeCarga
+java "-Djava.awt.headless=true" -cp "target/classes;target/test-classes" controlador.VerificacionVisor
+
+# Bitacora observable y navegacion del asistente (V11)
+java -cp "target/classes;target/test-classes" modelo.asistente.VerificacionBitacoraObservable
+java -cp "target/classes;target/test-classes" modelo.asistente.VerificacionNavegacionAsistente
+
+# Regresion por consola de Entrega 1 (V12)
+java -cp "target/classes;target/test-classes" app.MainDemo
+```
 
 ---
 
-## 5. Configuración Local Necesaria
+## 5. Etiquetas de Entrega
 
-Para asegurar una correcta ejecución sin conflictos de compatibilidad:
+* **Entrega 1:** `entrega-1`
+* **Entrega 2:** `entrega-e2`
 
-1. **Configuración de variables de entorno:**
-   * Definir la variable `JAVA_HOME` apuntando al directorio raíz del JDK 17 (ejemplo en Windows: `C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot` o en Linux: `/usr/lib/jvm/java-17-openjdk`).
-   * Asegurarse de que `%JAVA_HOME%\bin` (o `$JAVA_HOME/bin`) esté presente en la variable de entorno `PATH`.
-   * Si se utiliza Maven desde consola independiente, agregar el directorio `bin` de Apache Maven al `PATH`. (En IntelliJ IDEA no es necesario ya que el IDE utiliza su propio Maven empaquetado).
-2. **Codificación de Archivos (Encoding):**
-   * El proyecto utiliza **UTF-8** como codificación estándar, configurada en el `pom.xml` mediante `<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>`.
-   * Asegurar que el IDE tenga configurado UTF-8 para evitar inconsistencias en caracteres especiales o tildes.
-3. **Nivel de Lenguaje en el IDE:**
-   * Configurar el proyecto en el IDE con **Language Level 17** y **Project SDK 17**.
+```bash
+git checkout entrega-e2
+git tag -l "entrega-*"
+```
 
 ---
 
-## 6. Etiqueta de la Entrega
+## 6. Documentación (`docs/`)
 
-Esta entrega se identifica con la etiqueta:
-
-* **Nombre del tag:** `entrega-1`
-* **Comando para posicionarse en la versión entregada:**
-  ```bash
-  git checkout entrega-1
-  ```
-* **Comando para verificar la etiqueta:**
-  ```bash
-  git tag -l "entrega-*"
-  ```
-
----
-
-## 7. Documentación (`docs/`)
-
-La documentación se encuentra en la carpeta [`docs/`](docs/):
-
-* **Informe Técnico:** [`docs/informe.md`](docs/informe.md)  
-  *Justificación del diseño, responsabilidades de clases, contratos, invariantes y aplicación de los patrones Factory, Decorator, State y Template Method.*
-* **Registro de Uso de Inteligencia Artificial:** [`docs/uso-ia.md`](docs/uso-ia.md)  
-  *Bitácora detallada de consultas a herramientas de IA, revisiones del equipo y verificaciones según la Sección 8 de las Reglas Operativas.*
-* **Diagrama de Clases UML:**
-  * **Código fuente PlantUML:** [`docs/diagrama_uml_tpg_e1.puml`](docs/diagrama_uml_tpg_e1.puml)
-  * **Vectorial SVG (alta resolución y zoom):** [`docs/diagrama_uml_tpg_e1.svg`](docs/diagrama_uml_tpg_e1.svg)
-  * **Imagen PNG:** [`docs/diagrama_uml_tpg_e1.png`](docs/diagrama_uml_tpg_e1.png)
-
-## Inicio de la Entrega 2: bitácora observable
-
-`Bitacora` extiende `util.observer.Sujeto`. Se pueden agregar y quitar
-observadores que implementen `actualizar(String mensaje)`: cada evento válido
-se guarda y luego notifica su descripción. Las consultas conservan el orden
-temporal y devuelven copias de solo lectura.
-
-Los clientes que utilizan `AsistenteDeComando` se suscriben mediante
-`agregarObservadorBitacora(observador)` y se desuscriben mediante
-`quitarObservadorBitacora(observador)`. `AsistenteBase` delega ambas operaciones
-en su bitácora, sin exponerla. Al recibir el aviso, el cliente puede consultar
-el historial y los recursos actualizados a través del mismo asistente.
-
-La firma de `Observador` sigue la versión 2 del
-[módulo de la cátedra](https://github.com/MicaelaRasso/TrabajoIntegrador-DestinoYTablero).
-La integración con `Tablero` queda pendiente; compartir una firma no hace que
-interfaces de paquetes distintos sean el mismo tipo. Las futuras vistas deberán
-actualizar Swing mediante `SwingUtilities.invokeLater`.
-
-Después de compilar las pruebas, ejecutar en Linux/macOS:
-
-```bash
-java -cp "target/classes:target/test-classes" modelo.asistente.VerificacionBitacoraObservable
-```
-
-En Windows, reemplazar `:` por `;` en el classpath. Comprueba notificaciones,
-suscripciones, rechazos, copias y registros concurrentes. También verifica
-la suscripción a través de `AsistenteDeComando`, operaciones de recursos y
-motor, y la separación de los avisos entre naves.
-
-## Visor del universo paralelo
-
-Para abrir el visor por separado, compilá el proyecto y ejecutá su clase principal.
-
-```bash
-mvn compile
-java -cp target/classes app.MainVisor
-```
-
-El visor empieza con una plataforma vacía de tres lugares. Los botones crean
-generadoras y naves consumidoras mientras corre la simulación. La lista muestra
-cuándo ingresan, esperan, depositan o retiran baterías. Cerrar la ventana detiene
-los hilos del universo paralelo.
-
-Para verificar el monitor y el visor en macOS o Linux, ejecutá lo siguiente.
-
-```bash
-mvn test-compile
-java -cp "target/classes:target/test-classes" modelo.concurrencia.VerificacionPlataformaDeCarga
-java -Djava.awt.headless=true -cp "target/classes:target/test-classes" controlador.VerificacionVisor
-```
-
-En Windows, usá `;` como separador del classpath.
-
+* **Informe Técnico Unificado (Entregas 1 y 2):** [`docs/informe.md`](docs/informe.md)
+* **Registro de Uso de Inteligencia Artificial (Entregas 1 y 2):** [`docs/uso-ia.md`](docs/uso-ia.md)
+* **Esquema de Base de Datos (H2):** [`database/schema.sql`](database/schema.sql)
+* **Diagramas de Entrega 2 (MVC + Observer, Double Dispatch, `wait()/notifyAll()`, Login y Adapter/State/Template):** [`docs/diagramas_e2.md`](docs/diagramas_e2.md)
+* **Diagrama de Clases UML actualizado (PlantUML):** [`docs/diagrama_uml_tpg_e2.puml`](docs/diagrama_uml_tpg_e2.puml)
+* **Diagrama de Clases Entrega 1 (referencia histórica):** [`docs/diagrama_uml_tpg_e1.puml`](docs/diagrama_uml_tpg_e1.puml), [`docs/diagrama_uml_tpg_e1.png`](docs/diagrama_uml_tpg_e1.png), [`docs/diagrama_uml_tpg_e1.svg`](docs/diagrama_uml_tpg_e1.svg)

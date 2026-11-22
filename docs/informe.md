@@ -1,7 +1,11 @@
-# Informe de Diseño y Arquitectura — Entrega 1
+# Informe de Diseño y Arquitectura — Entregas 1 y 2
 
 **Proyecto:** TPG 2026 — Software embarcado de una nave interestelar tripulada  
-**Entrega:** Entrega 1 (Modelo de dominio, patrones de diseño y escenarios de demostración)
+**Alcance:** Entrega 1 (Modelo de dominio y patrones base) + Entrega 2 (Universo dinámico, concurrencia, persistencia e interfaz gráfica)
+
+---
+
+# Parte 1 — Modelo de dominio, patrones de diseño y escenarios base
 
 ---
 
@@ -237,3 +241,223 @@ El sistema cuenta con una batería completa de pruebas unitarias desarrolladas e
 - **Escenarios (`PruebasEscenarios` / `EjecutarPruebas`):** Ejecución automática de las aserciones de los escenarios A, B, C, D y Centro de Control.
 
 Todas las pruebas pasan limpiamente (20/20 aserciones de escenarios y 46 pruebas JUnit).
+
+---
+
+# Parte 2 — Universo Dinámico, Concurrencia, Persistencia e Interfaz Gráfica
+
+## 9. Introducción a la Parte 2
+
+La segunda parte continúa directamente sobre el modelo construido en la Entrega 1, sin reescribir el núcleo ni romper sus contratos. A la arquitectura en capas se incorporan:
+
+- **Nave, recursos ampliados, elementos del universo y Creación MVC (`modelo.nave`, `modelo.elementos`, `modelo.fabrica`, `vista.CreacionPanel`, `controlador.CreacionController`):** gemas, recargas con tope y total, destrucción de la nave y su tripulación, obstáculos, estaciones, encuentros entre naves con **Double Dispatch** y pantalla de creación.
+- **Extensión de tripulación y haberes (`modelo.tripulacion`, `vista.TripulantesPanel`):** estado vital (`estaVivo()` / `morir()`) y desglose estructurado de haberes (`ItemHaber`) apto para tablas Swing.
+- **Motor Warp reescrito, tablero/Destino y radares (`modelo.motor`, `modelo.tablero`, `destinoytablero`, `modelo.navegacion`, `vista.TableroPanel`, `controlador.TableroController`):** máquina de estados según las reglas del Anexo, planificación BFS, radares de largo y corto alcance, integración del módulo oficial de la cátedra mediante **Adapter** y visualización del tablero en tiempo real.
+- **Misiones en el universo dinámico, historial y panel (`modelo.misiones`, `vista.MisionesPanel`, `controlador.MisionController`):** bucle por turnos dentro del **Template Method**, informe con balance completo, historial en memoria y ejecución en hilo propio.
+- **Asistente observable y concurrencia (`util.observer`, `modelo.asistente`, `modelo.concurrencia`, `vista.RecursosBitacoraPanel`, `vista.VisorPanel`):** notificaciones automáticas vía **Observer** y simulación **Productor–Consumidor con monitores** (`synchronized`, `while`, `wait()`, `notifyAll()`).
+- **Control de acceso, persistencia e interfaz principal (`database/schema.sql`, `persistencia.*`, `servicio.*`, `vista.LoginPanel`, `vista.RegistroPanel`, `vista.VentanaPrincipal`, `controlador.AuthController`, `app.MainApp`):** registro/login con **DAO/DTO** sobre **JDBC + H2** y navegación modular con **MVC**.
+
+El modelo de dominio continúa completamente desacoplado de Swing y de SQL.
+
+---
+
+## 10. Nave, Recursos Ampliados, Elementos del Universo y Creación
+
+### Qué hace
+
+Se ampliaron `Nave`, `Recursos` y `NaveFactory` para cubrir la travesía espacial y las nuevas condiciones de las tres misiones. En `Recursos` se agregaron las gemas recolectadas (`M-02`), la entrega atómica de combustible y energía para asistir a una nave aliada (`M-01`), la recarga con tope en 100 para estaciones de carga, la recarga total con desgaste a 0 al regresar a la base (`M-03`) y la condición de destrucción cuando el desgaste llega a 100 o el combustible o la energía quedan en 0. En `Nave` se incorporaron la posición actual, la base de origen, la verificación de tripulación mínima (1 capitán y 4 tripulantes adicionales vivos) y el estado de destrucción que provoca la muerte de toda la tripulación.
+
+También se implementaron los elementos espaciales del tablero (`ElementoDelUniverso`, `NaveEnemiga`, `Asteroide` y `EstacionDeCarga`) con resolución de batallas mediante **Double Dispatch**, y la pantalla de Creación bajo **MVC** (`CreacionPanel` y `CreacionController`) para elegir el tipo de nave, instanciarla con la fábrica y asignarle los tripulantes.
+
+### Archivos y responsabilidades
+
+| Clase / Archivo | Responsabilidad |
+|---|---|
+| `Recursos`, `Nave`, `NaveExploradora`, `NaveCarguero`, `NaveCombate` | Amplían los suministros, la posición y el estado operativo de la nave, y reparten la tabla de batallas de 3×3 mediante Double Dispatch sin condicionales de tipo. |
+| `NaveFactory` | Mantiene la creación desacoplada de los tres tipos de nave y suma `crearNaveEnemiga` para instanciar naves enemigas del tablero sin usar `new` de clases concretas. |
+| `ElementoDelUniverso`, `ResultadoEncuentro`, `NaveEnemiga`, `Asteroide`, `EstacionDeCarga` | Modelan los encuentros durante la travesía: batallas entre naves, pérdida fija de energía por colisión con asteroides y recarga por monto fijo o porcentaje en estaciones. |
+| `CreacionPanel`, `CreacionController` | Implementan la Sección de Creación con MVC, separando las validaciones de formato en la vista de las reglas del dominio en el controlador. |
+
+### Reglas de encuentros (Double Dispatch 3×3)
+
+| Nave Propia \ Nave Enemiga | Exploradora | Carguero | Combate |
+|---|---|---|---|
+| **Exploradora** | `PACTO` | `GANA` | `PIERDE` |
+| **Carguero** | `PIERDE` | `PACTO` | `GANA` |
+| **Combate** | `GANA` | `PIERDE` | `PACTO` |
+
+### Por qué lo hicimos así
+
+- **Double Dispatch sin condicionales:** cuando `NaveEnemiga` interactúa con la nave propia, invoca `navePropia.enfrentarseCon(naveEnemiga)`. En el primer despacho, la nave propia llama en la enemiga al método de su propio tipo (`lucharContraExploradora`, `lucharContraCarguero` o `lucharContraCombate`), y en el segundo despacho la clase concreta de la enemiga devuelve `GANA`, `PIERDE` o `PACTO`. Así la tabla de 3×3 queda distribuida polimórficamente sin ningún `if`, `switch` ni `instanceof`. Si el resultado es `PIERDE`, la nave propia se destruye inmediatamente y toda su tripulación muere.
+- **Compatibilidad de `Recursos`:** se conservaron intactas las operaciones estrictas de la Entrega 1 (`cargarCombustible` y `cargarEnergia` que rechazan excesos sin cambios parciales) y se agregaron métodos específicos para la Entrega 2 (`recargarHastaElTope`, `recargaTotal` y `perderEnergiaHastaCero`) que saturan en los límites `[0, 100]` y notifican a los observadores.
+- **Separación MVC en Creación:** `CreacionPanel` captura los eventos de los botones y valida el formato (ID y nombre no vacíos; antigüedad y consejos enteros válidos) antes de delegar en `CreacionController`. El controlador utiliza `NaveFactory` para crear la nave, asigna los `Tripulante` y verifica la regla de negocio de tripulación mínima (al menos 1 capitán y 4 tripulantes adicionales vivos) antes de habilitar misiones.
+
+### Conexiones y dependencias
+
+- `Nave` utiliza `Coordenada` (`modelo.navegacion`), `MotorWarp` (`modelo.motor`) y `Tripulante` (`modelo.tripulacion`).
+- `NaveEnemiga`, `Asteroide` y `EstacionDeCarga` implementan `ElementoDelUniverso` y operan sobre `Nave` y `Recursos`.
+- `CreacionController` coordina `CreacionPanel` con `NaveFactory`, `Nave` y `Tripulante`.
+
+---
+
+## 11. Extensión de Tripulación y Haberes
+
+### Qué cambia respecto de la Entrega 1
+
+Se conservaron intactas todas las reglas salariales y la estructura del patrón **Decorator** de la Entrega 1, agregando dos capacidades requeridas por la Parte 2:
+
+1. **Estado vital del tripulante (`estaVivo()` / `morir()`):** todo `Tripulante` se instancia vivo (`vivo = true`) y pasa a fallecido mediante `morir()` cuando la nave es destruida durante una travesía o combate.
+2. **Desglose estructurado para la vista (`ItemHaber` y `obtenerDesglose()`):** en la Entrega 1 el detalle salarial se exponía solo como un `String` multilínea (`obtenerDetalle()`). Para evitar que la interfaz gráfica tenga que parsear texto, se incorporó el objeto de valor inmutable `ItemHaber` (concepto y aporte en PG) y el método `List<ItemHaber> obtenerDesglose()` en `ConceptoHaber`.
+
+### Archivos modificados y agregados (`modelo.tripulacion`)
+
+| Clase | Responsabilidad |
+|---|---|
+| `ItemHaber` *(nueva)* | Value Object inmutable (`final`) que representa un renglón del recibo: `concepto` y `aporte` en PG. |
+| `ConceptoHaber` | Suma `obtenerDesglose()` manteniendo `calcularTotal()` y `obtenerDetalle()`. |
+| `HaberDecorator`, `SueldoBase`, `BonoAntiguedad`, `BonoConsejero`, `SubsidioOrigen` | Acumulan cada renglón de `ItemHaber` a través de la cadena Decorator y devuelven listas inmutables (`Collections.unmodifiableList`). |
+| `Tripulante` | Agrega `estaVivo()`, `morir()`, soporte opcional de `cantidadConsejos` (constructor sobrecargado compatible con E1) y los métodos `obtenerHaber()`, `calcularHaberTotal()` y `obtenerDesgloseHaber()`. |
+
+---
+
+## 12. Motor Warp (State), Tablero/Destino (Adapter), Radares y Vista del Tablero
+
+### Qué hace
+
+El Motor Warp quedó reescrito según las reglas del Anexo: hacia afuera solo expone `saltar()` y `saltarWarp()`, mientras que las fases internas (`Disponible`, `PreparandoSalto`, `EnWarp` y `Enfriamiento`) resuelven qué pasa en cada turno aplicando el patrón **State**. El salto simple consume 2 de combustible y avanza una casilla. El salto Warp requiere 2 turnos de preparación verificando que haya 5 de energía (si no hay, sigue preparando sin avanzar), al saltar consume los 5 de energía y avanza dos casillas (o aborta y reinicia la preparación si perdió la energía), y luego cumple 1 turno de enfriamiento que suma 3 de desgaste antes de volver a `Disponible`.
+
+También se modeló el tablero de 20×20, los radares de largo y corto alcance para calcular la ruta y escanear la siguiente casilla, el adaptador hacia el módulo oficial `destinoytablero` provisto por la cátedra, la vista en tiempo real del tablero con Swing y la ampliación de `CentroDeControl` para listar las naves registradas.
+
+### Archivos y responsabilidades
+
+| Clase / Paquete | Responsabilidad |
+|---|---|
+| `MotorWarp`, `EstadoMotor`, `EstadoBase`, `Disponible`, `PreparandoSalto`, `EnWarp`, `Enfriamiento` | Implementan el patrón State del motor con las nuevas reglas de turnos, energía, combustible y desgaste. |
+| `SistemasDeLaNave`, `ResultadoDeTurno`, `ParametrosDelMotor` | Desacoplan al motor de la nave concreta, devuelven lo ocurrido en cada turno para la bitácora y centralizan costos y tiempos del Anexo. |
+| `Tablero`, `TableroStub`, `InstantaneaDelTablero`, `ElementoDePrueba` | Definen la interfaz de grilla 20×20, una implementación de prueba reproducible con semilla fija y la copia inmutable para dibujar. |
+| `destinoytablero.*` (`Tablero`, `Destino`, `Posicion`, `Observable`, `Observador`, excepciones) | Módulo oficial provisto por la cátedra integrado sin modificar su lógica. |
+| `AdaptadorTableroDestino` (`modelo.tablero`) | Implementa el patrón **Adapter** entre `modelo.tablero.Tablero` y las clases `destinoytablero.Tablero` + `destinoytablero.Destino`, traduciendo coordenadas, turnos de `Destino`, consulta de alrededores 3×3 y notificaciones de `Observador` de forma segura para hilos. |
+| `Coordenada`, `Ruta`, `PlanificadorDeRuta`, `RadarLargoAlcance`, `RadarCortoAlcance` | Calculan el camino más corto al destino mediante BFS ortogonal, guardan la ruta activa y escanean si la casilla siguiente está libre u ocupada. |
+| `TableroPanel`, `TableroController`, `MainTableroSwing` | Dibujan el tablero en vivo suscribiéndose como `Observador` y permiten probar el viaje en una ventana independiente. |
+| `CentroDeControl`, `MainDemo`, `EscenarioC`, `EscenarioNavegacion` | Agregan la consulta de asistentes registrados para los controladores y actualizan las demostraciones por consola al nuevo motor y a la navegación en el tablero. |
+
+### Por qué lo hicimos así
+
+- **Patrón State en el motor:** cada fase decide qué hacer cuando le piden `saltar()` o `saltarWarp()`, sin usar `if` ni `switch` por estado. Como ambas operaciones pueden invocarse en cualquier turno, cada estado devuelve un `ResultadoDeTurno` indicando el estado anterior, el estado nuevo, cuántas casillas avanzó y el mensaje para que el asistente lo registre en bitácora. El motor opera contra `SistemasDeLaNave` y conserva un constructor sin argumentos por defecto para mantener compatibilidad con la Entrega 1.
+- **Interfaz `Tablero`, `TableroStub` y Patrón Adapter con `Destino`:** el dominio y la vista dependen siempre de `modelo.tablero.Tablero`, nunca de las clases concretas de la cátedra. `TableroStub` usa un `Random` con semilla fija para pruebas reproducibles, mientras que en ejecución real (`MainApp`) se conecta `AdaptadorTableroDestino`, que envuelve `destinoytablero.Tablero` y `destinoytablero.Destino` poblados con elementos reales (`Asteroide`, `EstacionDeCarga`, `NaveEnemiga`) sin alterar el código de la cátedra.
+- **Radares:** `RadarLargoAlcance` calcula la ruta mínima con BFS ortogonal sobre la grilla y la almacena; turno a turno, `RadarCortoAlcance` inspecciona solo la casilla siguiente para decidir entre salto normal o Warp.
+- **Concurrencia en la vista del tablero:** como el tablero cambia desde el hilo de la misión y Swing dibuja en el EDT, `TableroPanel` recibe el aviso del `Observador` y usa `SwingUtilities.invokeLater` para pedir una `InstantaneaDelTablero` (copia profunda inmutable de etiquetas y coordenadas) y repintar sin leer nunca la matriz viva del motor.
+
+### Conexiones y dependencias
+
+- `MotorWarp` depende solo de `SistemasDeLaNave`.
+- Los radares, el planificador y `TableroPanel` dependen de la interfaz `modelo.tablero.Tablero`. Tanto `TableroStub` como `AdaptadorTableroDestino` extienden `util.observer.Sujeto`.
+- `CentroDeControl` guarda instancias de `AsistenteDeComando` por su abstracción.
+
+---
+
+## 13. Misiones en el Universo Dinámico, Historial y Panel de Misiones
+
+### Qué hace y alcance
+
+El paquete `modelo.misiones` contiene las tres misiones obligatorias (`M-01` Intercepción y asistencia, `M-02` Recolección y `M-03` Retorno a punto seguro), el informe final (`InformeMision`) y el historial en memoria (`HistorialDeInformes`). En esta entrega las misiones operan dentro del universo dinámico: la nave viaja hacia un destino sobre el tablero, turno a turno, y reacciona a lo que encuentra. Las misiones no acceden directamente a la nave ni al tablero: todo lo piden a `AsistenteDeComando` (consumir recursos, calcular la ruta, escanear, saltar y avanzar el turno del tablero).
+
+Para operar las misiones desde la interfaz gráfica se sumaron `MisionesPanel` y `MisionController`, que permiten elegir y lanzar misiones con destino aleatorio del tablero oficial o manual, correrlas en un hilo propio sin congelar Swing y consultar el historial completo de informes.
+
+### Por qué usamos Template Method con hooks
+
+Las tres misiones comparten un ciclo de vida de cuatro fases: `preparar` (verificar recursos mínimos y calcular la ruta), `ejecutar` (despegue y bucle de turnos con pausa `Thread.sleep` hasta llegar al destino), `evaluar` (armar el informe) y `cerrar` (aplicar la recompensa o entrega). Ese ciclo está escrito una sola vez en el método `ejecutarCiclo` de `Mision`, que es `final`, de modo que ninguna subclase puede alterar el orden.
+
+Lo que cambia entre misiones se resuelve con métodos de enganche (*hooks*) que cada subclase completa: el destino, la energía de despegue (`5`, `10` y `0`, todos con 4 de combustible y 4 de desgaste según el Anexo), la verificación en destino (solo `M-01`), la recompensa final (transferencia de auxilio, gemas entre 20 y 100, o recarga total con desgaste en 0) y los textos del informe. Así el bucle de viaje vive en un único lugar y no se duplica en las tres clases.
+
+### Contratos que cumple
+
+- **Preparación previa:** `ejecutar` lanza `IllegalStateException` si la misión no fue preparada.
+- **Cierre con informe:** `cerrar` lanza `IllegalStateException` si la misión no fue evaluada y no tiene informe.
+- **Recursos insuficientes:** `preparar` verifica los recursos mínimos antes de calcular la ruta. Si no alcanzan, la misión no despega, deja la nave intacta y termina con un informe de fracaso que explica el motivo.
+- **Destrucción de la nave:** si el desgaste llega a 100, o la energía o el combustible a 0, la misión falla de inmediato.
+- **Tope de turnos:** una misión que no llega al destino en 200 turnos falla, evitando bucles infinitos (por ejemplo, si el Warp queda preparando sin energía).
+- **Datos de entrada e invariantes:** los constructores rechazan valores fuera de rango (auxilio de 0 a 50, gemas de 20 a 100) y datos nulos; `verificarInvariantes()` valida el estado al finalizar cada fase. Los fallos normales del dominio quedan en el informe, reservando las excepciones para errores de programación.
+
+### Informe de misión, historial y panel MVC
+
+- **`InformeMision`:** guarda nombre, objetivo, resultado (éxito o fracaso), acciones realizadas, ruta realmente recorrida, balance de recursos (comparando inicio y fin: consumido, perdido y ganado), estado final de la nave y observaciones. Se crea en `evaluar` y se completa en `cerrar`.
+- **`HistorialDeInformes`:** conserva los informes en memoria (no se persisten en base de datos), sincronizado para acceso concurrente, con copias inmutables y notificación vía `Sujeto`.
+- **`MisionesPanel` y `MisionController`:** validan antes de despegar que la nave esté operativa con tripulación válida (`tieneTripulacionValida()`), garantizan una sola misión activa por vez (`AtomicBoolean`), ejecutan el viaje en un `Thread` dedicado (interrumpible al cancelar o cerrar la ventana) y refrescan la interfaz mediante `SwingUtilities.invokeLater`.
+
+---
+
+## 14. Asistente Observable, Panel de Recursos/Bitácora y Concurrencia (Visor del Universo Paralelo)
+
+### Qué hace
+
+El asistente quedó ampliado para que las misiones puedan consultar la posición de la nave, escanear una casilla y pedir un salto normal o Warp. El asistente pasa la orden al módulo de navegación (`NavegacionDeMision` / `NavegacionConTablero`), devuelve el resultado y registra lo ocurrido en la bitácora. Así la misión sabe si la nave avanzó, si el motor sigue preparando, si está enfriando o si el salto fue rechazado.
+
+También se implementaron el panel de recursos y bitácora de la nave seleccionada, y el **Visor del Universo Paralelo**, donde en torno a una `PlataformaDeCarga` compartida de capacidad limitada (3 lugares) las generadoras depositan baterías y las naves consumidoras las retiran en tiempo real.
+
+### Archivos y responsabilidades
+
+| Clase / Archivo | Responsabilidad |
+|---|---|
+| `AsistenteDeComando`, `AsistenteBase`, `NavegacionDeMision`, `NavegacionConTablero` | Definen las operaciones de travesía y delegan órdenes de navegación, escaneo, salto e interacción con elementos. |
+| `PosicionNave`, `ResultadoEscaneo`, `ResultadoSalto` | Representan la posición y los resultados estructurados que recibe la misión. |
+| `util.observer.Sujeto`, `util.observer.Observador`, `Bitacora`, `Recursos` | Implementan el patrón Observer propio (`java.util.Observable` está obsoleto), permitiendo suscribirse a eventos de bitácora y cambios de recursos. |
+| `RecursosBitacoraPanel`, `RecursosBitacoraController` | Muestran los datos en vivo de la nave seleccionada y actualizan las suscripciones al cambiar de nave. |
+| `PlataformaDeCarga`, `GeneradoraDeEnergia`, `NaveConsumidora`, `UniversoParalelo` | Modelan el monitor compartido con capacidad limitada, los hilos productores/consumidores creados en vivo y el cierre ordenado de hilos. |
+| `VisorPanel`, `VisorController`, `MainVisor` | Conectan los dos botones de alta en vivo y la consola de eventos del visor (`MainVisor` permite abrirlo por separado). |
+
+### Por qué lo hicimos así
+
+- **Patrón Observer hacia Swing:** cuando cambia un recurso o se agrega un evento en la bitácora, el modelo notifica a los observadores registrados a través del asistente sin conocer nada de Swing. El controlador suscrito consulta los valores actualizados y actualiza el panel en el EDT mediante `SwingUtilities.invokeLater`.
+- **Productor–Consumidor con Monitores:** cada `GeneradoraDeEnergia` y cada `NaveConsumidora` corre en su propio `Thread`. `PlataformaDeCarga` protege el acceso exclusivo con métodos `synchronized`, evalúa las condiciones de guarda (plataforma llena / plataforma vacía) dentro de bucles `while` llamando a `wait()` y, tras cada depósito o retiro, invoca `notifyAll()` para despertar a los hilos en espera y que vuelvan a comprobar la condición.
+
+### Conexiones y dependencias
+
+- Las misiones llaman a `AsistenteDeComando`; el asistente delega movimiento y escaneo a `NavegacionDeMision`.
+- El visor corre de forma completamente independiente de las misiones y detiene ordenadamente sus hilos al cerrar la ventana.
+
+---
+
+## 15. Control de Acceso, Persistencia (DAO / DTO + JDBC) e Interfaz Principal (MVC)
+
+### Qué hace
+
+Implementa el registro e inicio de sesión de operadores antes de acceder a los paneles de control, la ventana principal con navegación por pestañas y la sección de Tripulantes con consulta del desglose salarial en vivo. Cumpliendo estrictamente el alcance del enunciado, **únicamente se persisten las credenciales de usuario** (nombre de usuario y contraseña hasheada); ninguna otra entidad del dominio se persiste en base de datos.
+
+### Archivos y responsabilidades
+
+| Clase / Archivo | Paquete / Ruta | Responsabilidad |
+|---|---|---|
+| `schema.sql` | `database/` | Script DDL idempotente (`CREATE TABLE IF NOT EXISTS usuarios`) con clave primaria autoincremental y restricción `UNIQUE` sobre `nombre_usuario`. |
+| `UsuarioDTO` | `persistencia.dto` | Data Transfer Object inmutable para transportar `id`, `nombreUsuario` y `passwordHash` entre capas. Su `toString()` omite el hash para no exponerlo en logs. |
+| `UsuarioDAO`, `UsuarioDAOJdbc`, `ConexionBD`, `PersistenciaException` | `persistencia.dao` | Contrato DAO y su implementación JDBC sobre H2 con `PreparedStatement` y `try-with-resources`. Encapsula `SQLException` en `PersistenciaException` y no contiene reglas de negocio. |
+| `AutenticacionService`, `HashContrasena` y excepciones propias | `servicio` | Aplica reglas de negocio (unicidad, longitudes mínimas, validación de credenciales), deriva contraseñas con `PBKDF2WithHmacSHA256` y sal aleatoria de 16 bytes usando `javax.crypto` del JDK y lanza `UsuarioDuplicadoException` / `CredencialesInvalidasException`. |
+| `LoginPanel`, `RegistroPanel`, `AuthController` | `vista`, `controlador` | Flujo MVC de acceso: las vistas validan formato básico y delegan `ActionListener` en `AuthController`, que invoca al servicio y coordina errores o ingreso al sistema. |
+| `TripulantesPanel` | `vista` | Tabla no editable con datos, estado (`Vivo` / `Fallecido`) y salario total de cada tripulante, más panel de desglose reutilizando `obtenerDesgloseHaber()` del Decorator de E1. |
+| `VentanaPrincipal`, `MainApp` | `vista`, `app` | `JFrame` con `CardLayout` (Login / Registro / Sistema) y `JTabbedPane` modular (`setPanelCreacion`, `setPanelControlNave`, `setPanelVisor`), más el punto de entrada gráfico que ensambla toda la aplicación y detiene los hilos ordenadamente al cerrar. |
+
+### Decisiones de diseño
+
+- **Patrones DAO y DTO + Inversión de Dependencias:** `AutenticacionService` depende solo de la interfaz `UsuarioDAO`. Cambiar el motor de BD o usar H2 en memoria en pruebas no impacta ni al servicio ni a la interfaz gráfica.
+- **Elección de H2 embebida:** declarada en `pom.xml` (`com.h2database:h2`), persiste en archivo local (`./data/tpg2026`, excluido en `.gitignore`) sin exigir instalación de un servidor externo, y soporta modo en memoria (`jdbc:h2:mem:...`) para pruebas aisladas.
+- **Seguridad:** consultas parametrizadas con `PreparedStatement` (prevención de SQL Injection), hash PBKDF2 + sal comparado en tiempo constante (`MessageDigest.isEqual`) y mensaje genérico ante fallo de login.
+- **MVC y modularidad:** cada pestaña es un `JPanel` independiente con su controlador, sin que el modelo importe Swing, y toda actualización desde hilos secundarios pasa por `SwingUtilities.invokeLater`.
+
+---
+
+## 16. Verificación Integral de la Entrega 2 (Escenarios V1 a V12)
+
+Todas las pruebas unitarias, escenarios de regresión y verificaciones de integración se ejecutaron y pasaron en su totalidad:
+
+| ID | Escenario verificado | Clase de verificación | Resultado |
+|---|---|---|---|
+| **V1** | Registro, duplicado rechazado, login correcto/incorrecto y persistencia real en disco al reiniciar | `persistencia.AutenticacionTest` (JUnit 5) | 5/5 OK |
+| **V2–V4** | `M-01` (transferencia en cierre), `M-02` (gemas 20–100) y `M-03` (recarga total y desgaste 0) con historial | `controlador.VerificacionMisionesPanel` | OK |
+| **V5–V6** | Falla en `preparar` por recursos insuficientes sin cambios parciales y falla al llegar sin auxilio | `controlador.VerificacionMisionesPanel` | OK |
+| **V7** | Ciclo completo Motor Warp (preparación, sin energía, aborto, enfriamiento) y API pública de 2 métodos | `pruebas.PruebasMotorWarp` / `EscenarioC` | OK |
+| **V8–V9** | Las 9 combinaciones de Double Dispatch (3×3), asteroide hasta energía 0, estación con tope y destrucción | `modelo.elementos.VerificacionElementosYCreacion`, `NaveTest`, `RecursosTest` | OK |
+| **V10** | Plataforma de carga con monitores (`while`, `wait`, `notifyAll`), espera llena/vacía, 300 baterías y alta en vivo | `modelo.concurrencia.VerificacionPlataformaDeCarga`, `controlador.VerificacionVisor` | OK |
+| **V11** | Observer y GUI en vivo sin congelar la ventana (bitácora, recursos, tablero oficial adaptado y visor) | `VerificacionBitacoraObservable`, `PruebasVista`, `PruebasAdaptadorDestino` | OK |
+| **V12** | Regresión de Entrega 1 adaptada a la nueva API (Escenarios A–D, Centro de Control y Haberes Decorator) | `app.MainDemo`, `pruebas.EjecutarPruebas`, `HaberesTest`, `NaveFactoryTest` | OK |
+
+**Resumen numérico de pruebas:** 63/63 pruebas JUnit 5 (`NaveFactoryTest`, `NaveTest`, `RecursosTest`, `HaberesTest`, `AutenticacionTest`), 51/51 aserciones en `pruebas.EjecutarPruebas` (incluyendo las 5 pruebas de `PruebasAdaptadorDestino` sobre el módulo oficial de la cátedra) y 6/6 suites de verificación pasando sin errores.

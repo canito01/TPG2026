@@ -1,0 +1,352 @@
+@startuml diagrama_uml_tpg_e2
+title TPG 2026 - Entrega 2 - Universo Dinamico, Concurrencia, Persistencia y GUI (MVC + Observer)\nDiagrama de clases actualizado
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 35
+skinparam ranksep 50
+skinparam class {
+  BackgroundColor #FDFDFD
+  BorderColor #444444
+}
+skinparam package {
+  BackgroundColor #F4F7FB
+  BorderColor #8899AA
+}
+hide empty members
+
+package "app" #EEEEEE {
+  class MainApp {
+    + {static} main(args: String[])
+  }
+  class MainDemo {
+    + {static} main(args: String[])
+  }
+  class MainVisor
+  class MainTableroSwing
+}
+
+package "util.observer" {
+  interface Observador {
+    + actualizar(mensaje: String)
+  }
+  abstract class Sujeto {
+    + agregarObservador(o: Observador)
+    + quitarObservador(o: Observador)
+    # notificarObservadores(mensaje: String)
+  }
+  Sujeto o--> "*" Observador
+}
+
+package "persistencia.dto" {
+  class UsuarioDTO {
+    - id: Long
+    - nombreUsuario: String
+    - passwordHash: String
+    + getId(): Long
+    + getNombreUsuario(): String
+    + getPasswordHash(): String
+  }
+}
+
+package "persistencia.dao" {
+  interface UsuarioDAO {
+    + guardar(u: UsuarioDTO): UsuarioDTO
+    + buscarPorNombre(nombre: String): Optional<UsuarioDTO>
+    + existePorNombre(nombre: String): boolean
+  }
+  class UsuarioDAOJdbc
+  class ConexionBD {
+    + obtenerConexion(): Connection
+    + inicializarEsquema()
+  }
+  class PersistenciaException
+  UsuarioDAO <|.. UsuarioDAOJdbc
+  UsuarioDAOJdbc --> ConexionBD
+  UsuarioDAO ..> UsuarioDTO
+}
+
+package "servicio" {
+  class AutenticacionService {
+    + registrar(nombre: String, password: String): UsuarioDTO
+    + iniciarSesion(nombre: String, password: String): UsuarioDTO
+  }
+  class HashContrasena {
+    + {static} hash(passwordPlano: String): String
+    + {static} verificar(passwordPlano: String, hash: String): boolean
+  }
+  class AutenticacionException
+  class UsuarioDuplicadoException
+  class CredencialesInvalidasException
+  AutenticacionException <|-- UsuarioDuplicadoException
+  AutenticacionException <|-- CredencialesInvalidasException
+  AutenticacionService --> UsuarioDAO
+  AutenticacionService ..> HashContrasena
+  AutenticacionService ..> UsuarioDTO
+}
+
+package "modelo.tripulacion" {
+  enum Cargo
+  enum Origen
+  class ItemHaber {
+    - concepto: String
+    - aporte: double
+    + getConcepto(): String
+    + getAporte(): double
+  }
+  class Tripulante {
+    - identidad: String
+    - cargo: Cargo
+    - origen: Origen
+    - antiguedad: int
+    - cantidadConsejos: int
+    - vivo: boolean
+    + estaVivo(): boolean
+    + morir()
+    + obtenerHaber(): ConceptoHaber
+    + calcularHaberTotal(): double
+    + obtenerDesgloseHaber(): List<ItemHaber>
+  }
+  interface ConceptoHaber {
+    + calcularTotal(): double
+    + obtenerDetalle(): String
+    + obtenerDesglose(): List<ItemHaber>
+  }
+  class SueldoBase
+  abstract class HaberDecorator
+  class BonoAntiguedad
+  class BonoConsejero
+  class SubsidioOrigen
+
+  ConceptoHaber <|.. SueldoBase
+  ConceptoHaber <|.. HaberDecorator
+  HaberDecorator o--> ConceptoHaber
+  HaberDecorator <|-- BonoAntiguedad
+  HaberDecorator <|-- BonoConsejero
+  HaberDecorator <|-- SubsidioOrigen
+  ConceptoHaber ..> ItemHaber
+  Tripulante ..> ConceptoHaber
+}
+
+package "modelo.nave" {
+  enum TipoNave
+  abstract class Nave {
+    - posicion: Coordenada
+    - baseDeOrigen: Coordenada
+    - destruida: boolean
+    + tieneTripulacionValida(): boolean
+    + estaDestruida(): boolean
+    + destruir()
+    + enfrentarseCon(enemiga: Nave): ResultadoEncuentro
+    + lucharContraExploradora(propia: NaveExploradora): ResultadoEncuentro
+    + lucharContraCarguero(propia: NaveCarguero): ResultadoEncuentro
+    + lucharContraCombate(propia: NaveCombate): ResultadoEncuentro
+  }
+  class NaveExploradora
+  class NaveCarguero
+  class NaveCombate
+  class Recursos {
+    - combustible: int
+    - energia: int
+    - desgaste: int
+    - gemas: int
+    + recargarHastaElTope(c: int, e: int)
+    + recargaTotal()
+    + perderEnergiaHastaCero(e: int)
+    + agregarGemas(g: int)
+    + estaDestruida(): boolean
+  }
+  Nave <|-- NaveExploradora
+  Nave <|-- NaveCarguero
+  Nave <|-- NaveCombate
+  Sujeto <|-- Recursos
+  Nave *--> Recursos
+  Nave o--> "*" Tripulante
+}
+
+package "modelo.fabrica" {
+  class NaveFactory {
+    + crear(tipo: TipoNave, id: String): Nave
+    + crearNaveEnemiga(tipo: TipoNave, id: String): NaveEnemiga
+  }
+  NaveFactory ..> Nave
+}
+
+package "modelo.elementos" {
+  enum ResultadoEncuentro {
+    GANA
+    PIERDE
+    PACTO
+  }
+  interface ElementoDelUniverso {
+    + getNombre(): String
+    + interactuarCon(nave: Nave): String
+  }
+  class NaveEnemiga
+  class Asteroide
+  class EstacionDeCarga
+  ElementoDelUniverso <|.. NaveEnemiga
+  ElementoDelUniverso <|.. Asteroide
+  ElementoDelUniverso <|.. EstacionDeCarga
+  NaveEnemiga --> Nave
+}
+
+package "modelo.motor" {
+  interface SistemasDeLaNave
+  class MotorWarp {
+    + saltar(): ResultadoDeTurno
+    + saltarWarp(): ResultadoDeTurno
+  }
+  interface EstadoMotor
+  abstract class EstadoBase
+  class Disponible
+  class PreparandoSalto
+  class EnWarp
+  class Enfriamiento
+  class ResultadoDeTurno
+  MotorWarp --> EstadoMotor
+  MotorWarp --> SistemasDeLaNave
+  EstadoMotor <|.. EstadoBase
+  EstadoBase <|-- Disponible
+  EstadoBase <|-- PreparandoSalto
+  EstadoBase <|-- EnWarp
+  EstadoBase <|-- Enfriamiento
+  Nave *--> MotorWarp
+}
+
+package "destinoytablero (catedra)" #FFF8E7 {
+  class "Tablero" as TableroCatedra
+  class "Destino" as DestinoCatedra {
+    + turnoDestino()
+  }
+  class Posicion
+  DestinoCatedra --> TableroCatedra
+}
+
+package "modelo.tablero y modelo.navegacion" {
+  interface "Tablero" as TableroDominio {
+    + esValida(c: Coordenada): boolean
+    + getElementoEn(c: Coordenada): ElementoDePrueba
+    + moverElementos()
+    + moverNave(c: Coordenada)
+    + copiaParaDibujar(): InstantaneaDelTablero
+  }
+  class AdaptadorTableroDestino
+  class TableroStub
+  class InstantaneaDelTablero
+  class Coordenada
+  class Ruta
+  class PlanificadorDeRuta
+  class RadarLargoAlcance
+  class RadarCortoAlcance
+
+  Sujeto <|-- AdaptadorTableroDestino
+  Sujeto <|-- TableroStub
+  TableroDominio <|.. AdaptadorTableroDestino
+  TableroDominio <|.. TableroStub
+  AdaptadorTableroDestino --> TableroCatedra
+  AdaptadorTableroDestino --> DestinoCatedra
+  RadarLargoAlcance --> TableroDominio
+  RadarCortoAlcance --> TableroDominio
+  RadarLargoAlcance ..> PlanificadorDeRuta
+  RadarLargoAlcance ..> Ruta
+}
+
+package "modelo.asistente" {
+  interface AsistenteDeComando
+  class AsistenteBase
+  interface NavegacionDeMision
+  class NavegacionConTablero
+  class Bitacora
+  Sujeto <|-- Bitacora
+  AsistenteDeComando <|.. AsistenteBase
+  AsistenteBase --> Nave
+  AsistenteBase *--> Bitacora
+  AsistenteBase --> NavegacionDeMision
+  NavegacionDeMision <|.. NavegacionConTablero
+  SistemasDeLaNave <|.. NavegacionConTablero
+  NavegacionConTablero --> TableroDominio
+}
+
+package "modelo.misiones" {
+  abstract class Mision {
+    + ejecutarCiclo(a: AsistenteDeComando): InformeMision
+    # preparar(a: AsistenteDeComando)
+    # ejecutar(a: AsistenteDeComando)
+    # evaluar(a: AsistenteDeComando)
+    # cerrar(a: AsistenteDeComando)
+  }
+  class Mision1
+  class Mision2
+  class Mision3
+  class InformeMision
+  class HistorialDeInformes
+  Sujeto <|-- HistorialDeInformes
+  Mision <|-- Mision1
+  Mision <|-- Mision2
+  Mision <|-- Mision3
+  Mision ..> AsistenteDeComando
+  Mision ..> InformeMision
+  HistorialDeInformes o--> "*" InformeMision
+}
+
+package "modelo.concurrencia" {
+  class PlataformaDeCarga {
+    + depositar(productor: String)
+    + retirar(consumidor: String)
+  }
+  class GeneradoraDeEnergia
+  class NaveConsumidora
+  class UniversoParalelo {
+    + crearGeneradora(): String
+    + crearNaveConsumidora(): String
+    + close()
+  }
+  Sujeto <|-- PlataformaDeCarga
+  UniversoParalelo *--> PlataformaDeCarga
+  UniversoParalelo ..> GeneradoraDeEnergia
+  UniversoParalelo ..> NaveConsumidora
+  GeneradoraDeEnergia --> PlataformaDeCarga
+  NaveConsumidora --> PlataformaDeCarga
+}
+
+package "vista y controlador (Swing MVC)" #EEF7EE {
+  class VentanaPrincipal
+  class LoginPanel
+  class RegistroPanel
+  class AuthController
+  class CreacionPanel
+  class CreacionController
+  class TripulantesPanel
+  class TableroPanel
+  class TableroController
+  class RecursosBitacoraPanel
+  class RecursosBitacoraController
+  class MisionesPanel
+  class MisionController
+  class VisorPanel
+  class VisorController
+
+  AuthController --> AutenticacionService
+  AuthController --> LoginPanel
+  AuthController --> RegistroPanel
+  CreacionController --> CreacionPanel
+  CreacionController --> NaveFactory
+  TableroController --> TableroPanel
+  TableroPanel ..|> Observador
+  RecursosBitacoraController --> RecursosBitacoraPanel
+  MisionController --> MisionesPanel
+  MisionController --> HistorialDeInformes
+  MisionController ..> Mision
+  VisorController --> VisorPanel
+  VisorController --> UniversoParalelo
+  MainApp ..> VentanaPrincipal
+  MainApp ..> AuthController
+  MainApp ..> CreacionController
+  MainApp ..> TableroController
+  MainApp ..> RecursosBitacoraController
+  MainApp ..> MisionController
+  MainApp ..> VisorController
+}
+@enduml

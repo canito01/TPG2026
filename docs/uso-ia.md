@@ -247,3 +247,291 @@ El equipo revisó que el informe integrado reflejara con exactitud el estado del
 Revisión y lectura completa del archivo Markdown generado (`informe/informe.md`).
 
 **Estado:** Incorporado
+
+---
+
+## Consultas registradas — Entrega 2
+
+### Consulta 13 — Recursos y bitácora observables con patrón Observer
+
+- **Herramienta:** Codex (OpenAI)
+- **Propósito:** Incorporar el patrón Observer propio para que el panel de recursos y bitácora se actualice automáticamente ante cambios en los recursos o nuevos eventos de la nave seleccionada.
+- **Componente afectado:** `util.observer` (`Sujeto`, `Observador`), `modelo.asistente.Bitacora`, `modelo.nave.Recursos`, `vista.RecursosBitacoraPanel` y `controlador.RecursosBitacoraController`.
+
+**Resultado aprovechado:**
+
+Se implementaron `Sujeto` y `Observador` con la firma `actualizar(String mensaje)` y se suscribió la vista a través del asistente de la nave elegida, actualizando Swing en el EDT. Además se corrigió el consumo de recursos para que, si el desgaste supera el límite, se conserven intactos combustible, energía y desgaste.
+
+**Revisión:**
+
+Se revisó que los avisos lleguen solo al observador de la nave activa, que al cambiar de nave se actualicen las suscripciones sin fugas y que un consumo rechazado no produzca cambios parciales.
+
+**Verificación:**
+
+Ejecución de `modelo.asistente.VerificacionBitacoraObservable` pasando todos los casos.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 14 — Plataforma de carga concurrente y Visor del Universo Paralelo
+
+- **Herramienta:** Codex (OpenAI)
+- **Propósito:** Diseñar la plataforma compartida entre generadoras de energía y naves consumidoras con monitores en Java (`synchronized`, `while`, `wait()`, `notifyAll()`) y su panel de visualización en vivo.
+- **Componente afectado:** `modelo.concurrencia` (`PlataformaDeCarga`, `GeneradoraDeEnergia`, `NaveConsumidora`, `UniversoParalelo`), `vista.VisorPanel`, `controlador.VisorController` y `app.MainVisor`.
+
+**Resultado aprovechado:**
+
+Se armó la sincronización de la plataforma de capacidad limitada con condiciones de guarda dentro de bucles `while`, espera cuando se llena o vacía y notificación con `notifyAll()`. Se conectó el visor con dos botones para agregar entidades dinámicamente en tiempo real y cierre ordenado de hilos.
+
+**Revisión:**
+
+Se revisaron las condiciones de espera y despertar para descartar deadlocks o pérdida de baterías, así como la desconexión e interrupción limpia de hilos al cerrar la ventana.
+
+**Verificación:**
+
+Ejecución de `modelo.concurrencia.VerificacionPlataformaDeCarga` (intercambio de 300 baterías entre 6 hilos y ambas esperas) y `controlador.VerificacionVisor` en modo headless.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 15 — Operaciones de navegación en el Asistente de Comando
+
+- **Herramienta:** Codex (OpenAI)
+- **Propósito:** Conectar el asistente con el motor, los radares y el tablero para ofrecer a las misiones operaciones de consulta de posición, escaneo, salto normal y salto Warp.
+- **Componente afectado:** `modelo.asistente` (`AsistenteDeComando`, `AsistenteBase`, `NavegacionDeMision`, `NavegacionConTablero`, `PosicionNave`, `ResultadoEscaneo`, `ResultadoSalto`).
+
+**Resultado aprovechado:**
+
+Se prepararon las operaciones de navegación y su registro automático en bitácora, devolviendo estados claros que distinguen si la nave avanzó, si el motor está preparando o enfriando, o si la maniobra fue rechazada.
+
+**Revisión:**
+
+Se corroboró que el asistente siga actuando como único intermediario entre las misiones y la nave, delegando la lógica a cada subsistema.
+
+**Verificación:**
+
+Ejecución de `modelo.asistente.VerificacionNavegacionAsistente` con todos los casos verificados.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 16 — Recursos ampliados, destrucción de nave y fábrica de naves enemigas
+
+- **Herramienta:** Antigravity (Google DeepMind)
+- **Propósito:** Ampliar `Recursos`, `Nave` y `NaveFactory` para cubrir gemas, recargas con tope y total, entrega atómica de suministros, estado de destrucción y creación de naves enemigas manteniendo los contratos de la Entrega 1.
+- **Componente afectado:** `modelo.nave` (`Recursos`, `Nave`) y `modelo.fabrica.NaveFactory`.
+
+**Resultado aprovechado:**
+
+Se incorporaron las gemas para `M-02`, `entregarRecursos` atómico para `M-01`, `recargarHastaElTope` para estaciones, `recargaTotal` con mantenimiento para `M-03`, `estaDestruida()` (desgaste 100 o energía/combustible en 0, provocando la muerte de la tripulación) y `NaveFactory.crearNaveEnemiga`.
+
+**Revisión:**
+
+Se comprobó que las operaciones estrictas de la Entrega 1 sigan rechazando excesos sin cambios parciales y que al destruirse la nave toda la tripulación pase a estado fallecido.
+
+**Verificación:**
+
+Ejecución de `RecursosTest`, `NaveTest` y `NaveFactoryTest` pasando en verde.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 17 — Elementos del universo y resolución de batallas con Double Dispatch
+
+- **Herramienta:** Antigravity (Google DeepMind)
+- **Propósito:** Implementar `ElementoDelUniverso`, `Asteroide`, `EstacionDeCarga` y `NaveEnemiga`, y resolver las batallas entre naves según la tabla 3×3 aplicando Double Dispatch sin condicionales de tipo.
+- **Componente afectado:** `modelo.elementos` (`ElementoDelUniverso`, `ResultadoEncuentro`, `NaveEnemiga`, `Asteroide`, `EstacionDeCarga`) y `modelo.nave` (`Nave`, `NaveExploradora`, `NaveCarguero`, `NaveCombate`).
+
+**Resultado aprovechado:**
+
+Se distribuyó la tabla de encuentros 3×3 en los métodos polimórficos `lucharContraExploradora`, `lucharContraCarguero` y `lucharContraCombate` sin usar `if`, `switch` ni `instanceof`. Se implementó el daño fijo de energía hasta 0 en asteroides y la recarga por monto fijo o porcentaje en estaciones.
+
+**Revisión:**
+
+Se contrastaron las 9 combinaciones de combate contra la tabla del enunciado y se verificó que perder un encuentro destruye la nave y su tripulación.
+
+**Verificación:**
+
+Ejecución de `modelo.elementos.VerificacionElementosYCreacion` verificando las 9 combinaciones, asteroides y ambos modos de estación.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 18 — Sección de Creación bajo arquitectura MVC
+
+- **Herramienta:** Antigravity (Google DeepMind)
+- **Propósito:** Armar `CreacionPanel` y `CreacionController` separando validaciones de formato en la vista de las reglas de dominio en el controlador.
+- **Componente afectado:** `vista.CreacionPanel` y `controlador.CreacionController`.
+
+**Resultado aprovechado:**
+
+Se estructuró la pantalla para instanciar naves mediante `NaveFactory`, agregar tripulantes con validación numérica en vista y verificar en el controlador la regla de tripulación mínima (al menos 1 capitán y 4 tripulantes adicionales vivos).
+
+**Revisión:**
+
+Se revisó que la vista no conozca la fábrica ni las reglas de negocio y que las actualizaciones de tabla se ejecuten en el EDT.
+
+**Verificación:**
+
+Pruebas en modo headless en `modelo.elementos.VerificacionElementosYCreacion`.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 19 — Reescritura del Motor Warp con patrón State según el Anexo
+
+- **Herramienta:** Claude (Anthropic) y Antigravity (Google DeepMind)
+- **Propósito:** Reescribir `MotorWarp` y sus cuatro estados para cumplir las reglas del Anexo exponiendo únicamente `saltar()` y `saltarWarp()` hacia el exterior.
+- **Componente afectado:** `modelo.motor` (`MotorWarp`, `EstadoMotor`, `EstadoBase`, `Disponible`, `PreparandoSalto`, `EnWarp`, `Enfriamiento`, `SistemasDeLaNave`, `ResultadoDeTurno`, `ParametrosDelMotor`).
+
+**Resultado aprovechado:**
+
+Se modelaron los 2 turnos de preparación verificando 5 de energía, el aborto con reinicio de preparación si se pierde la energía al saltar, el turno de enfriamiento con 3 de desgaste y un constructor por defecto que conserva compatibilidad con la Entrega 1.
+
+**Revisión:**
+
+Se comprobó por reflexión que la API pública del motor exponga únicamente `saltar()` y `saltarWarp()` y que no haya condicionales por estado en el contexto.
+
+**Verificación:**
+
+Ejecución de `pruebas.PruebasMotorWarp` y `app.EscenarioC` pasando sin fallos.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 20 — Interfaz Tablero, TableroStub, radares y planificación de ruta BFS
+
+- **Herramienta:** Claude (Anthropic)
+- **Propósito:** Diseñar la abstracción del tablero de 20×20 desacoplada de la clase de la cátedra, junto con un stub reproducible y los radares de largo y corto alcance.
+- **Componente afectado:** `modelo.tablero` (`Tablero`, `TableroStub`, `InstantaneaDelTablero`, `ElementoDePrueba`) y `modelo.navegacion` (`Coordenada`, `Ruta`, `PlanificadorDeRuta`, `RadarLargoAlcance`, `RadarCortoAlcance`).
+
+**Resultado aprovechado:**
+
+Se diseñó la interfaz `Tablero`, `TableroStub` con `Random` con semilla fija, `Ruta` inmutable con validación de adyacencia ortogonal y `PlanificadorDeRuta` mediante BFS.
+
+**Revisión:**
+
+Se verificó el cálculo de rutas mínimas (distancia Manhattan), los bordes del tablero y la reproducibilidad exacta de un viaje completo con la misma semilla.
+
+**Verificación:**
+
+Ejecución de `pruebas.PruebasTablero`, `pruebas.PruebasNavegacion` y `app.EscenarioNavegacion`.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 21 — Vista del tablero en tiempo real segura para hilos
+
+- **Herramienta:** Claude (Anthropic) y Antigravity (Google DeepMind)
+- **Propósito:** Conectar `TableroPanel` y `TableroController` con Observer sin congelar Swing ni producir carreras entre el hilo de la misión y el EDT.
+- **Componente afectado:** `vista.TableroPanel`, `controlador.TableroController`, `modelo.tablero.InstantaneaDelTablero` y `app.MainTableroSwing`.
+
+**Resultado aprovechado:**
+
+Se diseñó `InstantaneaDelTablero` como copia profunda inmutable para que `TableroPanel` dibuje siempre una foto segura dentro de `SwingUtilities.invokeLater`, adaptando la suscripción a `Observador.actualizar(String mensaje)`.
+
+**Revisión:**
+
+Se comprobó la desconexión del observador al cerrar la ventana y la seguridad concurrente entre hilos moviendo elementos y tomando copias.
+
+**Verificación:**
+
+Ejecución de `vista.PruebasVista` y `pruebas.EjecutarPruebas` en verde.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 22 — Refactorización de Misiones con métodos de enganche (hooks) en Template Method
+
+- **Herramienta:** Claude (Anthropic)
+- **Propósito:** Evitar que las tres misiones dupliquen el ciclo de vida y el bucle de viaje por turnos sobre el tablero.
+- **Componente afectado:** `modelo.misiones` (`Mision`, `Mision1`, `Mision2`, `Mision3`).
+
+**Resultado aprovechado:**
+
+Los pasos del ciclo y el bucle de viaje quedaron escritos una sola vez en `Mision`, mientras las subclases redefinen únicamente los hooks propios de cada misión (destino, energía de despegue, verificación en destino, recompensa final y textos del informe).
+
+**Revisión:**
+
+Respecto de la Parte 1 (donde `evaluar` y `cerrar` eran abstractos), el equipo evaluó el diseño y adoptó hooks en la clase base para evitar triplicar el bucle de travesía y centralizar correcciones.
+
+**Verificación:**
+
+Compilación limpia y pruebas de las tres misiones.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 23 — Revisión de casos límite y tope de turnos en Misiones
+
+- **Herramienta:** Claude (Anthropic)
+- **Propósito:** Revisar las clases de misión en busca de casos límite antes de integrarlas con el asistente y el tablero oficial.
+- **Componente afectado:** `modelo.misiones` (`Mision`, `InformeMision`, `Mision1`, `Mision2`, `Mision3`).
+
+**Resultado aprovechado:**
+
+Se identificó el riesgo de bucle infinito cuando el Motor Warp queda en preparación por falta de energía, agregando un tope de 200 turnos que hace fallar la misión con motivo claro, y se ajustó la verificación de recursos mínimos para que el despegue no destruya la nave.
+
+**Revisión:**
+
+El equipo revisó cada hallazgo y validó los invariantes al final de cada fase mediante `verificarInvariantes()`.
+
+**Verificación:**
+
+Compilación con Java 17 y pruebas de casos límite en `VerificacionMisionesPanel`.
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 24 — Pruebas de persistencia H2 y validación de credenciales (Escenario V1)
+
+- **Herramienta:** Antigravity (Google DeepMind)
+- **Propósito:** Verificar la configuración de H2 en Maven (`pom.xml` y `database/schema.sql`), el almacenamiento de contraseñas con PBKDF2 y sal usando `javax.crypto`, y diseñar las pruebas unitarias del escenario V1 en memoria y en disco.
+- **Componente afectado:** `pom.xml`, `database/schema.sql`, `servicio.HashContrasena`, `src/test/java/persistencia/AutenticacionTest.java` y `src/test/java/modelo/tripulacion/HaberesTest.java`.
+
+**Resultado aprovechado:**
+
+Se definieron los casos de prueba de alta, usuario duplicado, credenciales inválidas, validaciones de formato y persistencia entre ejecuciones sobre H2, junto con los tests del desglose inmutable de haberes (`ItemHaber`) y estado vital en `Tripulante`.
+
+**Revisión:**
+
+Se comprobó que solo se persistan credenciales según la consigna, que todas las consultas JDBC usen `PreparedStatement` con `try-with-resources` y que las reglas de haberes de la Entrega 1 permanezcan sin cambios.
+
+**Verificación:**
+
+Ejecución de `AutenticacionTest` (5/5 en verde) y `HaberesTest` (5/5 en verde).
+
+**Estado:** Incorporado
+
+---
+
+### Consulta 25 — Integración final de módulos, adaptador de Destino y unificación de documentación
+
+- **Herramienta:** Antigravity (Google DeepMind)
+- **Propósito:** Apoyar la integración final en `MainApp` (adaptador del módulo `destinoytablero` provisto por la cátedra y panel/controlador de misiones), generar los diagramas actualizados de la Parte 2 y unificar los resúmenes del equipo en el informe técnico.
+- **Componente afectado:** `modelo.tablero.AdaptadorTableroDestino`, `vista.MisionesPanel`, `controlador.MisionController`, `modelo.misiones.HistorialDeInformes`, `app.MainApp`, `docs/informe.md`, `docs/diagramas_e2.md`, `docs/diagrama_uml_tpg_e2.puml` y `README.md`.
+
+**Resultado aprovechado:**
+
+Se integró el módulo oficial `destinoytablero` sin modificar su lógica mediante el patrón Adapter, se conectaron todas las secciones en `MainApp` y se unificaron los resúmenes aportados por el equipo en `docs/informe.md` junto con los diagramas actualizados de clases, MVC y secuencias (Double Dispatch y `wait()`/`notifyAll()`).
+
+**Revisión:**
+
+Se validó que ninguna clase de `destinoytablero` alterara su comportamiento original, que el informe refleje con exactitud las firmas y clases reales de la rama `develop` y que todas las verificaciones V1 a V12 pasen en conjunto.
+
+**Verificación:**
+
+Compilación total, ejecución de `EjecutarPruebas` (51/51), `VerificacionMisionesPanel` (V2–V6), pruebas JUnit 5 (63/63) y prueba manual punta a punta de `app.MainApp`.
+
+**Estado:** Incorporado
