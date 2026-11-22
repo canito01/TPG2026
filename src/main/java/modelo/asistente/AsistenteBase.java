@@ -1,6 +1,9 @@
 package modelo.asistente;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 import modelo.nave.Nave;
 import modelo.nave.RecursoFueraDeRangoException;
@@ -17,13 +20,20 @@ public class AsistenteBase implements AsistenteDeComando {
 
     private final Nave nave;
     private final Bitacora bitacora;
+    private final NavegacionDeMision navegacion;
 
     public AsistenteBase(Nave nave) {
+        this(nave, null);
+    }
+
+    /** Recibe el subsistema de navegación. null permite las demostraciones de la Entrega 1. */
+    public AsistenteBase(Nave nave, NavegacionDeMision navegacion) {
         if (nave == null) {
             throw new IllegalArgumentException("La nave no puede ser nula.");
         }
         this.nave = nave;
         this.bitacora = new Bitacora();
+        this.navegacion = navegacion;
     }
 
     @Override
@@ -33,7 +43,51 @@ public class AsistenteBase implements AsistenteDeComando {
 
     @Override
     public String consultarEstado() {
+        if (navegacion != null) {
+            return navegacion.consultarEstado();
+        }
         return nave.getMotor().getEstado().nombre();
+    }
+
+    @Override
+    public Optional<PosicionNave> consultarPosicion() {
+        if (navegacion == null) {
+            return Optional.empty();
+        }
+        return Optional.of(navegacion.consultarPosicion());
+    }
+
+    @Override
+    public ResultadoEscaneo escanear(PosicionNave casilla) {
+        if (navegacion == null) {
+            return AsistenteDeComando.super.escanear(casilla);
+        }
+        validarCasilla(casilla);
+        ResultadoEscaneo resultado;
+        try {
+            resultado = Objects.requireNonNull(navegacion.escanear(casilla));
+        } catch (ExcepcionDominio | RecursoFueraDeRangoException e) {
+            registrarEvento("Escaneo de " + describir(casilla) + " rechazado. " + e.getMessage());
+            return ResultadoEscaneo.RECHAZADO;
+        }
+        registrarEvento("Escaneo de " + describir(casilla) + ": " + resultado + ".");
+        return resultado;
+    }
+
+    @Override
+    public ResultadoSalto saltar(PosicionNave siguiente) {
+        if (navegacion == null) {
+            return AsistenteDeComando.super.saltar(siguiente);
+        }
+        return ejecutarSalto("Salto normal", siguiente, () -> navegacion.saltar(siguiente));
+    }
+
+    @Override
+    public ResultadoSalto saltarWarp(PosicionNave siguiente) {
+        if (navegacion == null) {
+            return AsistenteDeComando.super.saltarWarp(siguiente);
+        }
+        return ejecutarSalto("Salto Warp", siguiente, () -> navegacion.saltarWarp(siguiente));
     }
 
     @Override
@@ -160,6 +214,34 @@ public class AsistenteBase implements AsistenteDeComando {
     }
 
     // ---- metodos internos ----
+
+    private ResultadoSalto ejecutarSalto(String operacion, PosicionNave siguiente,
+                                         Supplier<ResultadoSalto> accion) {
+        validarCasilla(siguiente);
+        ResultadoSalto resultado;
+        try {
+            resultado = Objects.requireNonNull(accion.get());
+        } catch (ExcepcionDominio | RecursoFueraDeRangoException e) {
+            String motivo = e.getMessage();
+            if (motivo == null || motivo.isBlank()) {
+                motivo = "El subsistema rechazó el salto.";
+            }
+            resultado = new ResultadoSalto(ResultadoSalto.Estado.RECHAZADO, motivo);
+        }
+        registrarEvento(operacion + " hacia " + describir(siguiente)
+                + " [" + resultado.estado() + "]. " + resultado.mensaje());
+        return resultado;
+    }
+
+    private static void validarCasilla(PosicionNave casilla) {
+        if (casilla == null) {
+            throw new IllegalArgumentException("La casilla es obligatoria.");
+        }
+    }
+
+    private static String describir(PosicionNave casilla) {
+        return "(" + casilla.fila() + ", " + casilla.columna() + ")";
+    }
 
     // intenta la transicion en el motor, si falla captura la excepcion y devuelve rechazo
     private Resultado ejecutarTransicion(Runnable accion, String mensajeExito,

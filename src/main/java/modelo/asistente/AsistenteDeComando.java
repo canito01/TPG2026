@@ -1,13 +1,14 @@
 package modelo.asistente;
 
 import java.util.List;
+import java.util.Optional;
 
 import util.observer.Observador;
 
 /**
  * Contrato del asistente. Opera una sola nave durante toda su vida.
  * Delega las operaciones a los subsistemas (recursos, motor) y
- * convierte los rechazos en un Resultado en vez de propagar excepciones.
+ * comunica los rechazos operativos mediante resultados.
  * Si un parametro es invalido (negativo, null, etc) lanza IllegalArgumentException.
  * Si el parametro es valido pero no se puede aplicar, devuelve un Resultado de rechazo.
  */
@@ -18,6 +19,42 @@ public interface AsistenteDeComando {
 
     /** devuelve el nombre del estado actual del motor (Disponible, Preparando salto, En warp, Enfriamiento) */
     String consultarEstado();
+
+    /** Devuelve la posición actual. La consulta queda vacía si no se configuró navegación. */
+    default Optional<PosicionNave> consultarPosicion() {
+        return Optional.empty();
+    }
+
+    /** Consulta con el radar de corto alcance si hay un obstáculo en la casilla. */
+    default ResultadoEscaneo escanear(PosicionNave casilla) {
+        rechazarSinNavegacion("Escaneo", casilla);
+        return ResultadoEscaneo.RECHAZADO;
+    }
+
+    /** Procesa un turno de salto normal. Si avanza, la nave se desplaza una casilla. */
+    default ResultadoSalto saltar(PosicionNave siguiente) {
+        return new ResultadoSalto(ResultadoSalto.Estado.RECHAZADO,
+                rechazarSinNavegacion("Salto normal", siguiente));
+    }
+
+    /**
+     * Procesa un turno de Warp hacia la siguiente casilla de la ruta.
+     * Puede dedicar el turno a preparación, avanzar dos casillas, enfriar o rechazar
+     * la maniobra. Consultar la posición permite conocer dónde quedó la nave.
+     */
+    default ResultadoSalto saltarWarp(PosicionNave siguiente) {
+        return new ResultadoSalto(ResultadoSalto.Estado.RECHAZADO,
+                rechazarSinNavegacion("Salto Warp", siguiente));
+    }
+
+    private String rechazarSinNavegacion(String accion, PosicionNave casilla) {
+        if (casilla == null) {
+            throw new IllegalArgumentException("La casilla es obligatoria.");
+        }
+        String mensaje = accion + " rechazado: la navegación no está configurada.";
+        registrarEvento(mensaje);
+        return mensaje;
+    }
 
     /** devuelve una copia de los recursos actuales (no modifica nada) */
     ResumenRecursos consultarRecursos();
@@ -52,7 +89,7 @@ public interface AsistenteDeComando {
     /** Prepara el salto. Solo funciona desde Disponible. */
     Resultado prepararSalto();
 
-    /** Ejecuta el salto. Solo funciona desde Preparando salto. */
+    /** Transición de la Entrega 1. Para un salto normal de misión se indica la siguiente casilla. */
     Resultado saltar();
 
     /** Inicia el enfriamiento. Solo funciona desde En warp. */
