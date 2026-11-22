@@ -1,11 +1,11 @@
 package app;
 
 import java.io.PrintStream;
-import java.util.List;
 
 import modelo.asistente.AsistenteBase;
 import modelo.asistente.AsistenteDeComando;
 import modelo.asistente.Evento;
+import modelo.asistente.PosicionNave;
 import modelo.asistente.ResumenRecursos;
 import modelo.fabrica.NaveFactory;
 import modelo.misiones.InformeMision;
@@ -14,6 +14,7 @@ import modelo.misiones.Mision2;
 import modelo.misiones.Mision3;
 import modelo.nave.Nave;
 import modelo.nave.TipoNave;
+import modelo.tablero.TableroStub;
 import modelo.tripulacion.BonoAntiguedad;
 import modelo.tripulacion.Cargo;
 import modelo.tripulacion.ConceptoHaber;
@@ -48,7 +49,7 @@ class EscenarioA extends EscenarioBase {
         Nave com = fabrica.crear(TipoNave.COMBATE, "COM-01");
 
         CentroDeControl centro = new CentroDeControl();
-        AsistenteDeComando aExp = new AsistenteBase(exp);
+        AsistenteDeComando aExp = AsistenteBase.conTablero(exp, new TableroStub(0L));
         AsistenteDeComando aCar = new AsistenteBase(car);
         AsistenteDeComando aCom = new AsistenteBase(com);
 
@@ -78,14 +79,14 @@ class EscenarioA extends EscenarioBase {
 
         // 3. Preparar, ejecutar, evaluar y cerrar M-01
         out.println("\nA.3 Ejecucion de Mision M-01:");
-        Mision1 m1 = new Mision1();
+        Mision1 m1 = new Mision1(new PosicionNave(0, 2), 5, 5);
         InformeMision inf1 = m1.ejecutarCiclo(activo);
         imprimirInforme(out, inf1);
         exigir(inf1 != null && inf1.getResultado().startsWith("Exito"), "M-01 debe completarse con exito");
 
         // 4. Repetir el ciclo completo con M-02 y M-03
         out.println("\nA.4 Ejecucion de Misiones M-02 y M-03:");
-        Mision2 m2 = new Mision2();
+        Mision2 m2 = new Mision2(new PosicionNave(1, 2), 40);
         InformeMision inf2 = m2.ejecutarCiclo(activo);
         imprimirInforme(out, inf2);
         exigir(inf2 != null && inf2.getResultado().startsWith("Exito"), "M-02 debe completarse con exito");
@@ -108,9 +109,10 @@ class EscenarioA extends EscenarioBase {
             out.println("    [" + ev.getFecha() + "] " + ev.getDescripcion());
         }
 
-        exigir(rec.getCombustible() == 48, "combustible final esperado es 48");
-        exigir(rec.getEnergia() == 70, "energia final esperada es 70");
-        exigir(rec.getDesgaste() == 12, "desgaste final esperado es 12");
+        exigir(exp.getRecursos().getGemas() == 40, "la recompensa se suma a los recursos de la nave");
+        exigir(rec.getCombustible() == 100, "combustible final esperado es 100");
+        exigir(rec.getEnergia() == 100, "energia final esperada es 100");
+        exigir(rec.getDesgaste() == 0, "desgaste final esperado es 0");
         exigir(!activo.consultarBitacora().isEmpty(), "la bitacora no debe estar vacia");
 
         out.println("  VERIFICADO: Escenario A ejecutado correctamente con las tres misiones cumplidas");

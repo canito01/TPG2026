@@ -2,7 +2,8 @@ package modelo.misiones;
 
 import modelo.asistente.AsistenteDeComando;
 import modelo.asistente.Resultado;
-import destinoytablero.Posicion;
+import modelo.asistente.ResumenRecursos;
+import modelo.asistente.PosicionNave;
 
 /**
  * M-01 - Interceptacion y asistencia: llegar a la nave aliada y transferirle recursos.
@@ -15,7 +16,7 @@ public class Mision1 extends Mision {
     public static final int AUXILIO_MAXIMO = 50;
     private static final int ENERGIA_DESPEGUE = 5;
 
-    private final Posicion posicionAliada;
+    private final PosicionNave posicionAliada;
     private final int energiaAuxilio;
     private final int combustibleAuxilio;
 
@@ -24,7 +25,7 @@ public class Mision1 extends Mision {
      * @pre 0 <= energiaAuxilio <= 50 && 0 <= combustibleAuxilio <= 50
      * @throws IllegalArgumentException si se viola alguna precondicion
      */
-    public Mision1(Posicion posicionAliada, int energiaAuxilio, int combustibleAuxilio) {
+    public Mision1(PosicionNave posicionAliada, int energiaAuxilio, int combustibleAuxilio) {
         super("M-01");
         if (posicionAliada == null) {
             throw new IllegalArgumentException("Falta la posicion de la nave aliada");
@@ -39,7 +40,7 @@ public class Mision1 extends Mision {
     }
 
     @Override
-    protected Posicion determinarDestino(AsistenteDeComando a) {
+    protected PosicionNave determinarDestino(AsistenteDeComando a) {
         return posicionAliada;
     }
 
@@ -54,10 +55,11 @@ public class Mision1 extends Mision {
      */
     @Override
     protected void verificarEnDestino(AsistenteDeComando a) {
-        if (a.getEnergia() < energiaAuxilio || a.getCombustible() < combustibleAuxilio) {
+        ResumenRecursos recursos = a.consultarRecursos();
+        if (recursos.getEnergia() < energiaAuxilio || recursos.getCombustible() < combustibleAuxilio) {
             fallar("No alcanzan los recursos para el auxilio: requiere energia " + energiaAuxilio
                     + " y combustible " + combustibleAuxilio + ", disponibles energia "
-                    + a.getEnergia() + " y combustible " + a.getCombustible());
+                    + recursos.getEnergia() + " y combustible " + recursos.getCombustible());
         } else {
             registrarAccion("Contacto con la nave aliada en " + coord(posicionAliada)
                     + ": recursos de auxilio verificados");
@@ -75,6 +77,8 @@ public class Mision1 extends Mision {
         if (!r.fueExito()) {
             throw new IllegalStateException("La transferencia de auxilio fue rechazada: " + r.getMensaje());
         }
+        a.registrarEvento("Auxilio descontado: " + energiaAuxilio + " de energía y "
+                + combustibleAuxilio + " de combustible.");
     }
 
     @Override

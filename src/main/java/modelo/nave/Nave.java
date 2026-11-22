@@ -6,6 +6,7 @@ import java.util.List;
 
 import modelo.elementos.ResultadoEncuentro;
 import modelo.motor.MotorWarp;
+import modelo.motor.SistemasDeLaNave;
 import modelo.navegacion.Coordenada;
 import modelo.tripulacion.Cargo;
 import modelo.tripulacion.Tripulante;
@@ -26,7 +27,7 @@ public abstract class Nave {
     private final String id;
     private final TipoNave tipo;
     private final Recursos recursos;
-    private final MotorWarp motor;
+    private MotorWarp motor;
     private final List<Tripulante> tripulacion = new ArrayList<>();
     private Coordenada baseDeOrigen;
     private Coordenada posicion;
@@ -69,6 +70,11 @@ public abstract class Nave {
 
     public MotorWarp getMotor() {
         return motor;
+    }
+
+    /** Conecta el motor con los recursos y la ruta al preparar la nave para navegar. */
+    public void conectarMotor(SistemasDeLaNave sistemas) {
+        motor = new MotorWarp(sistemas);
     }
 
     public Coordenada getPosicion() {

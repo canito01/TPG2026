@@ -3,7 +3,7 @@ package modelo.misiones;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import destinoytablero.Posicion;
+import modelo.asistente.PosicionNave;
 
 /**
  * Informe final de una mision (fase "evaluar"). El estado final de la nave se
@@ -19,7 +19,7 @@ public class InformeMision {
     private final boolean exitosa;
     private final String resultado;
     private final List<String> acciones;
-    private final List<Posicion> ruta;
+    private final List<PosicionNave> ruta;
     private final String balanceRecursos;
     private final String observaciones;
     private String estadoNave;
@@ -30,7 +30,7 @@ public class InformeMision {
      * @throws IllegalArgumentException si algun argumento es null
      */
     protected InformeMision(String nombre, String objetivo, boolean exitosa, String resultado,
-                            List<String> acciones, List<Posicion> ruta,
+                            List<String> acciones, List<PosicionNave> ruta,
                             String balanceRecursos, String estadoNave, String observaciones) {
         if (nombre == null || objetivo == null || resultado == null || acciones == null
                 || ruta == null || balanceRecursos == null || estadoNave == null
@@ -60,7 +60,7 @@ public class InformeMision {
     public List<String> getAcciones() { return Collections.unmodifiableList(acciones); }
 
     /** @return recorrido real de la nave (posiciones visitadas, en orden). */
-    public List<Posicion> getRuta() { return Collections.unmodifiableList(ruta); }
+    public List<PosicionNave> getRuta() { return Collections.unmodifiableList(ruta); }
 
     /** @return balance de recursos ganados, consumidos o perdidos. */
     public String getRecursosConsumidos() { return balanceRecursos; }

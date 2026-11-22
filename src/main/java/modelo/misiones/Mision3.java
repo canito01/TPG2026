@@ -1,7 +1,7 @@
 package modelo.misiones;
 
 import modelo.asistente.AsistenteDeComando;
-import destinoytablero.Posicion;
+import modelo.asistente.PosicionNave;
 
 /**
  * M-03 - Retorno a punto seguro: volver a la base de origen, recargar al 100% y reparar.
@@ -15,12 +15,9 @@ public class Mision3 extends Mision {
     }
 
     @Override
-    protected Posicion determinarDestino(AsistenteDeComando a) {
-        Posicion base = a.getPosicionBase();
-        if (base == null) {
-            throw new IllegalStateException("La nave no tiene una base de origen definida");
-        }
-        return base;
+    protected PosicionNave determinarDestino(AsistenteDeComando a) {
+        return a.consultarBase().orElseThrow(
+                () -> new IllegalStateException("La nave no tiene una base de origen definida"));
     }
 
     @Override

@@ -4,8 +4,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import modelo.asistente.AsistenteDeComando;
+import modelo.asistente.PosicionNave;
 import modelo.asistente.Resultado;
-import destinoytablero.Posicion;
+import modelo.asistente.ResultadoEscaneo;
+import modelo.asistente.ResultadoSalto;
+import modelo.asistente.ResumenRecursos;
 
 /**
  * Clase base de las misiones. Implementa el patron Template Method: el metodo
@@ -33,9 +36,9 @@ public abstract class Mision {
     private InformeMision informe;
 
     private final List<String> acciones = new ArrayList<>();
-    private final List<Posicion> recorrido = new ArrayList<>();
-    private List<Posicion> rutaPlanificada = Collections.emptyList();
-    private Posicion destino;
+    private final List<PosicionNave> recorrido = new ArrayList<>();
+    private List<PosicionNave> rutaPlanificada = Collections.emptyList();
+    private PosicionNave destino;
     private boolean fallida;
     private String motivoFallo;
     private int turnos;
@@ -101,9 +104,10 @@ public abstract class Mision {
      */
     protected void preparar(AsistenteDeComando a) {
         exigirFase(Fase.SIN_INICIAR, "preparar");
-        combustibleInicial = a.getCombustible();
-        energiaInicial = a.getEnergia();
-        desgasteInicial = a.getDesgaste();
+        ResumenRecursos inicial = a.consultarRecursos();
+        combustibleInicial = inicial.getCombustible();
+        energiaInicial = inicial.getEnergia();
+        desgasteInicial = inicial.getDesgaste();
 
         destino = determinarDestino(a);
         if (destino == null) {
@@ -112,9 +116,9 @@ public abstract class Mision {
 
         String faltante = recursosMinimosFaltantes();
         if (faltante != null) {
-            fallar("Recursos insuficientes para iniciar: " + faltante);
+            fallar("Consumo rechazado: recursos insuficientes para iniciar (" + faltante + ")");
         } else {
-            List<Posicion> ruta = a.calcularRuta(destino);
+            List<PosicionNave> ruta = a.calcularRuta(destino);
             if (ruta == null || ruta.isEmpty()) {
                 fallar("No existe una ruta valida hacia " + coord(destino));
             } else {
@@ -149,7 +153,7 @@ public abstract class Mision {
             fallar("Recursos insuficientes para el despegue: " + r.getMensaje());
         } else {
             registrarAccion("Despegue: " + resumenDespegue());
-            recorrido.add(a.getPosicion());
+            recorrido.add(posicionActual(a));
 
             while (puedeSeguirViajando(a)) {
                 if (turnos >= MAX_TURNOS) {
@@ -158,7 +162,7 @@ public abstract class Mision {
                 }
                 turnos++;
                 turnoDeLaNave(a);
-                if (naveDestruida(a)) {
+                if (fallida || naveDestruida(a)) {
                     break;
                 }
                 a.avanzarTurnoTablero();
@@ -168,7 +172,7 @@ public abstract class Mision {
             }
 
             if (naveDestruida(a)) {
-                fallar("La nave fue destruida en " + coord(a.getPosicion()) + "; la tripulacion se perdio");
+                fallar("La nave fue destruida en " + coord(posicionActual(a)) + "; la tripulacion se perdio");
             } else if (!fallida) {
                 registrarAccion("Llegada al destino " + coord(destino) + " en " + turnos + " turnos");
                 verificarEnDestino(a);
@@ -188,19 +192,28 @@ public abstract class Mision {
             return;
         }
 
-        boolean obstaculoAdelante = a.escanearCortoAlcance();
-        Posicion antes = a.getPosicion();
-        if (obstaculoAdelante) {
-            a.saltarWarp();
-        } else {
-            a.saltar();
+        PosicionNave antes = posicionActual(a);
+        int indice = rutaPlanificada.indexOf(antes);
+        if (indice < 0 || indice + 1 >= rutaPlanificada.size()) {
+            fallar("La nave no tiene un paso siguiente en la ruta planificada.");
+            return;
         }
-        Posicion despues = a.getPosicion();
-
+        PosicionNave siguiente = rutaPlanificada.get(indice + 1);
+        ResultadoEscaneo escaneo = a.escanear(siguiente);
+        if (escaneo == ResultadoEscaneo.RECHAZADO) {
+            fallar("No se pudo escanear la casilla " + coord(siguiente));
+            return;
+        }
+        boolean obstaculoAdelante = escaneo == ResultadoEscaneo.OBSTACULO;
+        ResultadoSalto salto = obstaculoAdelante ? a.saltarWarp(siguiente) : a.saltar(siguiente);
+        if (salto.estado() == ResultadoSalto.Estado.RECHAZADO) {
+            fallar(salto.mensaje());
+            return;
+        }
+        PosicionNave despues = posicionActual(a);
         String modo = obstaculoAdelante ? "Warp (obstaculo detectado)" : "salto normal";
         if (despues.equals(antes)) {
-            registrarAccion("Turno " + turnos + ": sin desplazamiento, " + modo
-                    + " en preparacion/enfriamiento en " + coord(antes));
+            registrarAccion("Turno " + turnos + ": " + salto.mensaje());
         } else {
             recorrido.add(despues);
             registrarAccion("Turno " + turnos + ": " + modo + " de " + coord(antes) + " a " + coord(despues));
@@ -208,15 +221,21 @@ public abstract class Mision {
     }
 
     private boolean puedeSeguirViajando(AsistenteDeComando a) {
-        return !fallida && !naveDestruida(a) && !a.getPosicion().equals(destino);
+        return !fallida && !naveDestruida(a) && !posicionActual(a).equals(destino);
+    }
+
+    private PosicionNave posicionActual(AsistenteDeComando a) {
+        return a.consultarPosicion().orElseThrow(
+                () -> new IllegalStateException("El asistente no tiene navegación configurada."));
     }
 
     /** Regla del enunciado: desgaste 100, energia 0 o combustible 0 destruyen la nave. */
     private boolean naveDestruida(AsistenteDeComando a) {
+        ResumenRecursos recursos = a.consultarRecursos();
         return a.estaDestruida()
-                || a.getDesgaste() >= DESGASTE_DESTRUCCION
-                || a.getEnergia() <= 0
-                || a.getCombustible() <= 0;
+                || recursos.getDesgaste() >= DESGASTE_DESTRUCCION
+                || recursos.getEnergia() <= 0
+                || recursos.getCombustible() <= 0;
     }
 
     /** @return false si el hilo fue interrumpido (la mision se marca como fallida). */
@@ -274,6 +293,7 @@ public abstract class Mision {
             aplicarRecompensa(a);
             registrarAccion("Cierre: " + describirRecompensa());
         } else {
+            a.registrarEvento(nombre + " fallida. " + motivoFallo);
             registrarAccion("Cierre sin recompensas (mision fallida)");
         }
         registrarAccion("Mision " + nombre + " cerrada");
@@ -284,7 +304,7 @@ public abstract class Mision {
 
 
     /** @return coordenada objetivo. @post != null */
-    protected abstract Posicion determinarDestino(AsistenteDeComando a);
+    protected abstract PosicionNave determinarDestino(AsistenteDeComando a);
 
     /** @return energia consumida al despegar (Anexo: M-01=5, M-02=10, M-03=0). @post >= 0 */
     protected abstract int energiaDespegue();
@@ -346,8 +366,8 @@ public abstract class Mision {
         }
     }
 
-    protected static String coord(Posicion p) {
-        return p == null ? "(sin posicion)" : "(" + p.getX() + "," + p.getY() + ")";
+    protected static String coord(PosicionNave p) {
+        return p == null ? "(sin posicion)" : "(" + p.columna() + "," + p.fila() + ")";
     }
 
     /** @return copia de las acciones registradas hasta el momento. */
@@ -410,13 +430,14 @@ public abstract class Mision {
     }
 
     private String balanceDeRecursos(AsistenteDeComando a, boolean exito) {
+        ResumenRecursos recursos = a.consultarRecursos();
         StringBuilder sb = new StringBuilder();
-        sb.append("Combustible: ").append(combustibleInicial).append(" -> ").append(a.getCombustible())
-                .append(" (").append(variacion(a.getCombustible() - combustibleInicial)).append(")");
-        sb.append(" | Energia: ").append(energiaInicial).append(" -> ").append(a.getEnergia())
-                .append(" (").append(variacion(a.getEnergia() - energiaInicial)).append(")");
-        sb.append(" | Desgaste: ").append(desgasteInicial).append(" -> ").append(a.getDesgaste())
-                .append(" (").append(variacion(a.getDesgaste() - desgasteInicial)).append(")");
+        sb.append("Combustible: ").append(combustibleInicial).append(" -> ").append(recursos.getCombustible())
+                .append(" (").append(variacion(recursos.getCombustible() - combustibleInicial)).append(")");
+        sb.append(" | Energia: ").append(energiaInicial).append(" -> ").append(recursos.getEnergia())
+                .append(" (").append(variacion(recursos.getEnergia() - energiaInicial)).append(")");
+        sb.append(" | Desgaste: ").append(desgasteInicial).append(" -> ").append(recursos.getDesgaste())
+                .append(" (").append(variacion(recursos.getDesgaste() - desgasteInicial)).append(")");
         if (exito) {
             sb.append(" | A aplicar en el cierre: ").append(describirRecompensa());
         }

@@ -2,7 +2,7 @@ package modelo.misiones;
 
 import java.util.concurrent.ThreadLocalRandom;
 import modelo.asistente.AsistenteDeComando;
-import destinoytablero.Posicion;
+import modelo.asistente.PosicionNave;
 
 /**
  * M-02 - Recoleccion: llegar a un punto de interes y obtener gemas.
@@ -16,14 +16,14 @@ public class Mision2 extends Mision {
     public static final int GEMAS_MAX = 100;
     private static final int ENERGIA_DESPEGUE = 10;
 
-    private final Posicion puntoDeInteres;
+    private final PosicionNave puntoDeInteres;
     private final int gemas;
 
     /**
      * @pre puntoDeInteres != null && 20 <= gemas <= 100
      * @throws IllegalArgumentException si se viola alguna precondicion
      */
-    public Mision2(Posicion puntoDeInteres, int gemas) {
+    public Mision2(PosicionNave puntoDeInteres, int gemas) {
         super("M-02");
         if (puntoDeInteres == null) {
             throw new IllegalArgumentException("Falta el punto de interes");
@@ -37,12 +37,12 @@ public class Mision2 extends Mision {
     }
 
     /** Recompensa variable: sortea las gemas entre 20 y 100. */
-    public Mision2(Posicion puntoDeInteres) {
+    public Mision2(PosicionNave puntoDeInteres) {
         this(puntoDeInteres, ThreadLocalRandom.current().nextInt(GEMAS_MIN, GEMAS_MAX + 1));
     }
 
     @Override
-    protected Posicion determinarDestino(AsistenteDeComando a) {
+    protected PosicionNave determinarDestino(AsistenteDeComando a) {
         return puntoDeInteres;
     }
 

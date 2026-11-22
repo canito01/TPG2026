@@ -6,11 +6,14 @@ import java.util.List;
 import modelo.asistente.AsistenteBase;
 import modelo.asistente.AsistenteDeComando;
 import modelo.asistente.Evento;
+import modelo.asistente.PosicionNave;
 import modelo.asistente.ResumenRecursos;
 import modelo.fabrica.NaveFactory;
+import modelo.misiones.InformeMision;
 import modelo.misiones.Mision1;
 import modelo.nave.Nave;
 import modelo.nave.TipoNave;
+import modelo.tablero.TableroStub;
 
 /**
  * Escenario B - Recursos insuficientes (Ficha de Inicio).
@@ -31,7 +34,7 @@ class EscenarioB extends EscenarioBase {
         out.println("B.1 Preparar nave con recursos insuficientes:");
         NaveFactory fabrica = new NaveFactory();
         Nave nave = fabrica.crear(TipoNave.EXPLORADORA, "EXP-B");
-        AsistenteDeComando a = new AsistenteBase(nave);
+        AsistenteDeComando a = AsistenteBase.conTablero(nave, new TableroStub(0L));
 
         // La mision 1 requiere 4 de combustible. Consumimos 58 para dejar solo 2.
         a.consumir(58, 0, 0);
@@ -43,16 +46,10 @@ class EscenarioB extends EscenarioBase {
 
         // 2. Intentar ejecutar la mision
         out.println("\nB.2 Intento de ejecucion de Mision M-01:");
-        Mision1 mision = new Mision1();
-        boolean excepcionLanzada = false;
-        try {
-            mision.ejecutarCiclo(a);
-            exigir(false, "la mision debia fallar por recursos insuficientes");
-        } catch (IllegalStateException e) {
-            excepcionLanzada = true;
-            out.println("  Rechazo capturado correctamente: " + e.getMessage());
-        }
-        exigir(excepcionLanzada, "debia lanzarse IllegalStateException");
+        Mision1 mision = new Mision1(new PosicionNave(0, 2), 5, 5);
+        InformeMision informe = mision.ejecutarCiclo(a);
+        exigir(!informe.isExitosa(), "la mision debia fallar por recursos insuficientes");
+        out.println("  Rechazo capturado correctamente: " + informe.getObservaciones());
 
         // 3. Verificar que la operacion se rechaza, no deja cambios parciales y registra el motivo
         out.println("\nB.3 Verificacion de atomicidad y registro en Bitacora:");

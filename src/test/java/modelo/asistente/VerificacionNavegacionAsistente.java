@@ -2,15 +2,24 @@ package modelo.asistente;
 
 import java.util.List;
 
+import modelo.elementos.Asteroide;
 import modelo.fabrica.NaveFactory;
+import modelo.motor.ParametrosDelMotor;
 import modelo.nave.Nave;
 import modelo.nave.TipoNave;
+import modelo.navegacion.Coordenada;
+import modelo.tablero.ElementoDePrueba;
+import modelo.tablero.TableroStub;
+import modelo.tripulacion.Cargo;
+import modelo.tripulacion.Origen;
+import modelo.tripulacion.Tripulante;
 
 /** Comprueba el contrato del asistente con una navegación de prueba. */
 public final class VerificacionNavegacionAsistente {
     public static void main(String[] args) {
         verificarDelegacionYBitacora();
         verificarAsistenteSinNavegacion();
+        verificarNaveYMotorConTablero();
         System.out.println("Navegación del asistente: delegación, resultados y bitácora verificados.");
     }
 
@@ -76,6 +85,53 @@ public final class VerificacionNavegacionAsistente {
 
     private static Nave crearNave() {
         return new NaveFactory().crear(TipoNave.EXPLORADORA, "EXP-NAV");
+    }
+
+    private static void verificarNaveYMotorConTablero() {
+        Nave nave = crearNave();
+        nave.setBaseDeOrigen(new Coordenada(1, 2));
+        Tripulante capitan = new Tripulante("Kirk", Cargo.CAPITAN, Origen.TERRICOLA, 5);
+        nave.agregarTripulante(capitan);
+        TableroStub tablero = new TableroStub(0L);
+        AsistenteDeComando asistente = AsistenteBase.conTablero(nave, tablero);
+        PosicionNave obstaculo = new PosicionNave(2, 2);
+        PosicionNave despuesDelWarp = new PosicionNave(2, 3);
+        PosicionNave destino = new PosicionNave(2, 4);
+        tablero.colocar(ElementoDePrueba.representar(new Asteroide()), new Coordenada(2, 2));
+        tablero.colocar(ElementoDePrueba.representar(new Asteroide(100)), new Coordenada(4, 2));
+        comprobar(asistente.calcularRuta(destino)
+                .equals(List.of(new PosicionNave(2, 1), obstaculo, despuesDelWarp, destino)),
+                "El radar usa la posición real y convierte fila y columna al tablero.");
+        comprobar(asistente.escanear(obstaculo) == ResultadoEscaneo.OBSTACULO,
+                "El radar detecta un elemento real en la ruta.");
+        ResumenRecursos antes = asistente.consultarRecursos();
+        ResultadoSalto rechazado = asistente.saltar(destino);
+        ResumenRecursos despuesDelRechazo = asistente.consultarRecursos();
+        comprobar(rechazado.estado() == ResultadoSalto.Estado.RECHAZADO
+                        && antes.getCombustible() == despuesDelRechazo.getCombustible()
+                        && antes.getEnergia() == despuesDelRechazo.getEnergia()
+                        && antes.getDesgaste() == despuesDelRechazo.getDesgaste(),
+                "Una casilla que no sigue en la ruta no consume recursos.");
+        comprobar(asistente.saltarWarp(obstaculo).estado() == ResultadoSalto.Estado.PREPARANDO
+                        && asistente.saltarWarp(obstaculo).estado() == ResultadoSalto.Estado.PREPARANDO,
+                "El motor cumple los dos turnos de preparación.");
+        comprobar(asistente.saltarWarp(obstaculo).estado() == ResultadoSalto.Estado.AVANZO
+                        && asistente.consultarPosicion().orElseThrow().equals(despuesDelWarp)
+                        && tablero.getPosicionNave().equals(nave.getPosicion())
+                        && nave.getRecursos().getEnergia() == antes.getEnergia() - ParametrosDelMotor.ENERGIA_WARP,
+                "El Warp mueve la nave real y consume su energía.");
+        comprobar(asistente.saltar(destino).estado() == ResultadoSalto.Estado.ENFRIANDO
+                        && nave.getRecursos().getDesgaste() == ParametrosDelMotor.DESGASTE_ENFRIAMIENTO,
+                "El enfriamiento aplica el desgaste sobre los recursos reales.");
+        comprobar(asistente.saltar(destino).estado() == ResultadoSalto.Estado.AVANZO
+                        && nave.getRecursos().getCombustible()
+                        == antes.getCombustible() - ParametrosDelMotor.COMBUSTIBLE_SALTO_SIMPLE,
+                "El salto normal descuenta combustible de la nave real.");
+        comprobar(asistente.interactuarConElementoActual().contains("Asteroide")
+                        && asistente.estaDestruida() && !capitan.estaVivo()
+                        && asistente.consultarBitacora().stream()
+                                .anyMatch(evento -> evento.getDescripcion().contains("Se perdió la tripulación")),
+                "El encuentro se delega y el asistente registra la destrucción.");
     }
 
     private static void comprobar(boolean condicion, String mensaje) {

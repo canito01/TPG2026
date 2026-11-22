@@ -25,6 +25,24 @@ public interface AsistenteDeComando {
         return Optional.empty();
     }
 
+    default Optional<PosicionNave> consultarBase() { return Optional.empty(); }
+
+    default List<PosicionNave> calcularRuta(PosicionNave destino) { return List.of(); }
+
+    default String interactuarConElementoActual() { return null; }
+
+    default void avanzarTurnoTablero() { }
+
+    default boolean estaDestruida() { return false; }
+
+    default void agregarGemas(int cantidad) {
+        throw new UnsupportedOperationException("Este asistente no opera una nave con gemas.");
+    }
+
+    default void reabastecerYRepararTotal() {
+        throw new UnsupportedOperationException("Este asistente no opera una nave con recursos recargables.");
+    }
+
     /** Consulta con el radar de corto alcance si hay un obstáculo en la casilla. */
     default ResultadoEscaneo escanear(PosicionNave casilla) {
         rechazarSinNavegacion("Escaneo", casilla);

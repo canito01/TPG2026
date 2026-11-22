@@ -5,9 +5,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import modelo.motor.ResultadoDeTurno;
 import modelo.nave.Nave;
 import modelo.nave.RecursoFueraDeRangoException;
 import modelo.nave.Recursos;
+import modelo.tablero.Tablero;
 import util.observer.Observador;
 
 /**
@@ -21,9 +23,15 @@ public class AsistenteBase implements AsistenteDeComando {
     private final Nave nave;
     private final Bitacora bitacora;
     private final NavegacionDeMision navegacion;
+    private String estadoDeDemostracion = "Disponible";
+    private boolean destruccionRegistrada;
 
     public AsistenteBase(Nave nave) {
         this(nave, null);
+    }
+
+    public static AsistenteBase conTablero(Nave nave, Tablero tablero) {
+        return new AsistenteBase(nave, new NavegacionConTablero(nave, tablero));
     }
 
     /** Recibe el subsistema de navegación. null permite las demostraciones de la Entrega 1. */
@@ -46,7 +54,7 @@ public class AsistenteBase implements AsistenteDeComando {
         if (navegacion != null) {
             return navegacion.consultarEstado();
         }
-        return nave.getMotor().getEstado().nombre();
+        return estadoDeDemostracion;
     }
 
     @Override
@@ -55,6 +63,71 @@ public class AsistenteBase implements AsistenteDeComando {
             return Optional.empty();
         }
         return Optional.of(navegacion.consultarPosicion());
+    }
+
+    @Override
+    public Optional<PosicionNave> consultarBase() {
+        return Optional.of(PosicionNave.desde(nave.getBaseDeOrigen()));
+    }
+
+    @Override
+    public List<PosicionNave> calcularRuta(PosicionNave destino) {
+        validarCasilla(destino);
+        if (navegacion == null) {
+            registrarEvento("Ruta rechazada: la navegación no está configurada.");
+            return List.of();
+        }
+        try {
+            List<PosicionNave> ruta = navegacion.calcularRuta(destino);
+            registrarEvento(ruta.isEmpty() ? "No hay ruta hacia " + describir(destino)
+                    : "Ruta hacia " + describir(destino) + ": " + (ruta.size() - 1) + " pasos.");
+            return ruta;
+        } catch (ExcepcionDominio e) {
+            registrarEvento("Ruta rechazada: " + e.getMessage());
+            return List.of();
+        }
+    }
+
+    @Override
+    public String interactuarConElementoActual() {
+        if (navegacion == null || estaDestruida()) {
+            return null;
+        }
+        String evento = navegacion.interactuarConElementoActual();
+        if (evento != null && !evento.isBlank()) {
+            registrarEvento(evento);
+        }
+        estaDestruida();
+        return evento;
+    }
+
+    @Override
+    public void avanzarTurnoTablero() {
+        if (navegacion != null) {
+            navegacion.avanzarTurnoTablero();
+        }
+    }
+
+    @Override
+    public boolean estaDestruida() {
+        boolean destruida = nave.estaDestruida();
+        if (destruida && !destruccionRegistrada) {
+            destruccionRegistrada = true;
+            registrarEvento("Nave " + nave.getId() + " destruida. Se perdió la tripulación.");
+        }
+        return destruida;
+    }
+
+    @Override
+    public void agregarGemas(int cantidad) {
+        nave.getRecursos().recolectarGemas(cantidad);
+        registrarEvento("Recompensa: " + cantidad + " gemas recolectadas.");
+    }
+
+    @Override
+    public void reabastecerYRepararTotal() {
+        nave.getRecursos().recargaTotal();
+        registrarEvento("Recompensa: recarga total y reparación de la nave.");
     }
 
     @Override
@@ -171,26 +244,22 @@ public class AsistenteBase implements AsistenteDeComando {
 
     @Override
     public Resultado prepararSalto() {
-        return ejecutarTransicion(() -> nave.getMotor().prepararSalto(),
-                "Salto preparado", "prepararSalto");
+        return turnoDeDemostracion("Disponible", true);
     }
 
     @Override
     public Resultado saltar() {
-        return ejecutarTransicion(() -> nave.getMotor().saltar(),
-                "Salto ejecutado", "saltar");
+        return turnoDeDemostracion(null, false);
     }
 
     @Override
     public Resultado enfriar() {
-        return ejecutarTransicion(() -> nave.getMotor().enfriar(),
-                "Enfriamiento iniciado", "enfriar");
+        return turnoDeDemostracion("En warp", true);
     }
 
     @Override
     public Resultado terminarEnfriamiento() {
-        return ejecutarTransicion(() -> nave.getMotor().terminarEnfriamiento(),
-                "Enfriamiento terminado, motor disponible", "terminarEnfriamiento");
+        return turnoDeDemostracion("Enfriamiento", false);
     }
 
     @Override
@@ -243,18 +312,22 @@ public class AsistenteBase implements AsistenteDeComando {
         return "(" + casilla.fila() + ", " + casilla.columna() + ")";
     }
 
-    // intenta la transicion en el motor, si falla captura la excepcion y devuelve rechazo
-    private Resultado ejecutarTransicion(Runnable accion, String mensajeExito,
-                                         String nombreAccion) {
-        try {
-            accion.run();
-            bitacora.registrar(mensajeExito);
-            return new Resultado(true, mensajeExito);
-        } catch (TransicionInvalidaException e) {
-            String msg = "Transicion rechazada (" + nombreAccion + "): " + e.getMessage();
-            bitacora.registrar(msg);
-            return new Resultado(false, msg);
+    private Resultado turnoDeDemostracion(String estadoRequerido, boolean warp) {
+        if (navegacion != null) {
+            String mensaje = "Salto rechazado: indicá la siguiente casilla de la ruta.";
+            registrarEvento(mensaje);
+            return new Resultado(false, mensaje);
         }
+        if (estadoRequerido != null && !estadoRequerido.equals(estadoDeDemostracion)) {
+            String mensaje = "Transición rechazada desde " + estadoDeDemostracion + ".";
+            registrarEvento(mensaje);
+            return new Resultado(false, mensaje);
+        }
+        ResultadoDeTurno turno = warp ? nave.getMotor().saltarWarp() : nave.getMotor().saltar();
+        estadoDeDemostracion = turno.getEstadoActual();
+        ResultadoSalto resultado = NavegacionConTablero.interpretar(turno);
+        registrarEvento(resultado.mensaje());
+        return new Resultado(resultado.estado() != ResultadoSalto.Estado.RECHAZADO, resultado.mensaje());
     }
 
     private static void validarNoNegativo(String nombre, int valor) {
