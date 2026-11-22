@@ -1,109 +1,353 @@
 package modelo.misiones;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import modelo.asistente.AsistenteDeComando;
 import modelo.asistente.Resultado;
+import destinoytablero.Posicion;
 
+/**
+ * Clase base de las misiones. Implementa el patron Template Method: el metodo
+ * fija el orden preparar -> ejecutar ->
+ * evaluar -> cerrar, y las subclases solo completan los "hooks" que dependen del tipo
+ * de mision (destino, costo energetico, verificacion en destino, recompensa, textos).
+ *
+ * @invariant nombre != null && !nombre.isBlank()
+ * @invariant 0 <= turnos <= MAX_TURNOS
+ * @invariant fallida => motivoFallo != null
+ * @invariant (fase == EVALUADA || fase == CERRADA) <=> informe != null
+ * @invariant recorrido != null && acciones != null
+ *
+ */
 public abstract class Mision {
 
-    private final String nombre;
-    private InformeMision informe;
-    private boolean estaPreparada = false;
-    private boolean operacionCompletada = false;
-    private boolean exito = false;
-    private final List<String> acciones = new ArrayList<>();
 
+    public static final int MAX_TURNOS = 200;
+    protected static final int DESGASTE_DESTRUCCION = 100;
+
+    private enum Fase { SIN_INICIAR, PREPARADA, EJECUTADA, EVALUADA, CERRADA }
+
+    private final String nombre;
+    private Fase fase = Fase.SIN_INICIAR;
+    private InformeMision informe;
+
+    private final List<String> acciones = new ArrayList<>();
+    private final List<Posicion> recorrido = new ArrayList<>();
+    private List<Posicion> rutaPlanificada = Collections.emptyList();
+    private Posicion destino;
+    private boolean fallida;
+    private String motivoFallo;
+    private int turnos;
+    private int combustibleInicial;
+    private int energiaInicial;
+    private int desgasteInicial;
+
+    /**
+     * @pre nombre != null && !nombre.isBlank()
+     * @throws IllegalArgumentException si el nombre es nulo o vacio
+     */
     protected Mision(String nombre) {
+        if (nombre == null || nombre.isBlank()) {
+            throw new IllegalArgumentException("La mision necesita un nombre");
+        }
         this.nombre = nombre;
     }
 
+    /**
+     * Ejecuta el ciclo completo de la mision. Es final: el orden no se puede alterar.
+     *
+     * @pre a != null
+     * @pre la mision no esta en curso (fase SIN_INICIAR o CERRADA)
+     * @post retorna un informe != null y la mision queda CERRADA
+     * @post si la mision fallo por una condicion del dominio (recursos, ruta, destruccion,
+     *       verificacion en destino) NO se lanza excepcion: el informe indica el fracaso
+     * @throws IllegalArgumentException si a es null
+     * @throws IllegalStateException si la mision ya esta en curso o se viola el contrato interno
+     */
     public final InformeMision ejecutarCiclo(AsistenteDeComando a) {
-        acciones.clear();
-        operacionCompletada = false;
-        exito = false;
+        if (a == null) {
+            throw new IllegalArgumentException("El asistente de comando no puede ser null");
+        }
+        if (fase != Fase.SIN_INICIAR && fase != Fase.CERRADA) {
+            throw new IllegalStateException("La mision " + nombre + " ya esta en curso");
+        }
+        reiniciar();
         try {
             preparar(a);
-            ejecutar(a);
-            this.exito = evaluar(a);
-            this.informe = cerrar(a);
-            return this.informe;
+            if (!fallida) {
+                ejecutar(a);
+            }
+            evaluar(a);
+            cerrar(a);
+            return informe;
         } finally {
-            this.estaPreparada = false;
+            if (fase != Fase.CERRADA) {   // salio por excepcion: se permite reintentar
+                fase = Fase.SIN_INICIAR;
+                informe = null;
+            }
         }
     }
 
     /**
-     * Prepara la mision para su ejecucion.
-     * La verificacion de recursos no se hace aca: la realiza de forma atomica
+     * Verifica recursos minimos y calcula la ruta con el radar de largo alcance.
+     * La verificacion va ANTES del calculo de ruta para no gastar energia de radar
+     * en una mision que no puede iniciarse.
      *
-     * @param a El asistente de comando que coordina la mision.
-     * @post estaPreparada == true
-     * @post se registra la accion "preparada" en la lista de acciones
+     * @pre fase == SIN_INICIAR
+     * @post fase == PREPARADA
+     * @post si no hay recursos minimos o no hay ruta: fallida == true y la nave no cambio
+     * @post si no fallo: rutaPlanificada no vacia y destino != null
      */
     protected void preparar(AsistenteDeComando a) {
-        this.estaPreparada = true;
-        acciones.add("Mision " + nombre + " preparada");
+        exigirFase(Fase.SIN_INICIAR, "preparar");
+        combustibleInicial = a.getCombustible();
+        energiaInicial = a.getEnergia();
+        desgasteInicial = a.getDesgaste();
+
+        destino = determinarDestino(a);
+        if (destino == null) {
+            throw new IllegalStateException("determinarDestino() no puede retornar null");
+        }
+
+        String faltante = recursosMinimosFaltantes();
+        if (faltante != null) {
+            fallar("Recursos insuficientes para iniciar: " + faltante);
+        } else {
+            List<Posicion> ruta = a.calcularRuta(destino);
+            if (ruta == null || ruta.isEmpty()) {
+                fallar("No existe una ruta valida hacia " + coord(destino));
+            } else {
+                rutaPlanificada = Collections.unmodifiableList(new ArrayList<>(ruta));
+                registrarAccion("Mision " + nombre + " preparada: ruta de " + ruta.size()
+                        + " pasos hacia " + coord(destino));
+            }
+        }
+        fase = Fase.PREPARADA;
+        verificarInvariantes();
     }
 
     /**
-     * Ejecuta la mision consumiendo los recursos de forma atomica a traves del asistente.
+     * Consumo de despegue + bucle de turnos (nave y tablero) + verificacion en destino.
      *
-     * @param a El asistente de comando que coordina la ejecucion.
-     * @pre estaPreparada == true
-     * @post si tuvo exito, los recursos de la nave fueron consumidos y operacionCompletada == true
-     * @throws IllegalStateException si no se preparo la mision o si los recursos son insuficientes
-     *         (en ese caso la nave no sufre cambios parciales).
+     * @pre fase == PREPARADA && !fallida   (una mision no se ejecuta sin preparacion)
+     * @post fase == EJECUTADA
+     * @post turnos <= MAX_TURNOS
+     * @post si la nave se destruyo, se agoto el limite de turnos o se interrumpio el hilo:
+     *       fallida == true
+     * @post si llego al destino: la nave esta en destino y se ejecuto verificarEnDestino()
+     * @throws IllegalStateException si no se preparo la mision
      */
     protected void ejecutar(AsistenteDeComando a) {
-        if (!this.estaPreparada) {
+        if (fase != Fase.PREPARADA || fallida) {
             throw new IllegalStateException("Una mision no puede ejecutarse sin preparacion previa.");
         }
-        Resultado res = a.consumir(costoCombustible(), energiaAdicional(), costoDesgaste());
-        if (!res.fueExito()) {
-            throw new IllegalStateException("Recursos insuficientes: " + res.getMensaje());
+
+        // Consumo de despegue (atomico: si falla, la nave no cambia)
+        Resultado r = a.consumir(combustibleDespegue(), energiaDespegue(), desgasteDespegue());
+        if (!r.fueExito()) {
+            fallar("Recursos insuficientes para el despegue: " + r.getMensaje());
+        } else {
+            registrarAccion("Despegue: " + resumenDespegue());
+            recorrido.add(a.getPosicion());
+
+            while (puedeSeguirViajando(a)) {
+                if (turnos >= MAX_TURNOS) {
+                    fallar("Se supero el maximo de " + MAX_TURNOS + " turnos sin llegar al destino");
+                    break;
+                }
+                turnos++;
+                turnoDeLaNave(a);
+                if (naveDestruida(a)) {
+                    break;
+                }
+                a.avanzarTurnoTablero();
+                if (!pausarTurno()) {
+                    break;
+                }
+            }
+
+            if (naveDestruida(a)) {
+                fallar("La nave fue destruida en " + coord(a.getPosicion()) + "; la tripulacion se perdio");
+            } else if (!fallida) {
+                registrarAccion("Llegada al destino " + coord(destino) + " en " + turnos + " turnos");
+                verificarEnDestino(a);
+            }
         }
-        this.operacionCompletada = true;
-        acciones.add("Mision " + nombre + " ejecutada (recursos consumidos)");
+        fase = Fase.EJECUTADA;
+        verificarInvariantes();
+    }
+
+    /** Un turno de la nave: inspeccionar posicion, escanear y moverse. */
+    private void turnoDeLaNave(AsistenteDeComando a) {
+        String evento = a.interactuarConElementoActual();
+        if (evento != null && !evento.isBlank()) {
+            registrarAccion("Turno " + turnos + ": " + evento);
+        }
+        if (naveDestruida(a)) {
+            return;
+        }
+
+        boolean obstaculoAdelante = a.escanearCortoAlcance();
+        Posicion antes = a.getPosicion();
+        if (obstaculoAdelante) {
+            a.saltarWarp();
+        } else {
+            a.saltar();
+        }
+        Posicion despues = a.getPosicion();
+
+        String modo = obstaculoAdelante ? "Warp (obstaculo detectado)" : "salto normal";
+        if (despues.equals(antes)) {
+            registrarAccion("Turno " + turnos + ": sin desplazamiento, " + modo
+                    + " en preparacion/enfriamiento en " + coord(antes));
+        } else {
+            recorrido.add(despues);
+            registrarAccion("Turno " + turnos + ": " + modo + " de " + coord(antes) + " a " + coord(despues));
+        }
+    }
+
+    private boolean puedeSeguirViajando(AsistenteDeComando a) {
+        return !fallida && !naveDestruida(a) && !a.getPosicion().equals(destino);
+    }
+
+    /** Regla del enunciado: desgaste 100, energia 0 o combustible 0 destruyen la nave. */
+    private boolean naveDestruida(AsistenteDeComando a) {
+        return a.estaDestruida()
+                || a.getDesgaste() >= DESGASTE_DESTRUCCION
+                || a.getEnergia() <= 0
+                || a.getCombustible() <= 0;
+    }
+
+    /** @return false si el hilo fue interrumpido (la mision se marca como fallida). */
+    private boolean pausarTurno() {
+        try {
+            Thread.sleep(pausaPorTurnoMs());
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            fallar("La mision fue interrumpida durante la travesia");
+            return false;
+        }
     }
 
     /**
-     * Evalua si el objetivo especifico de la mision se cumplio.
-     * El resultado queda disponible para {@link #cerrar(AsistenteDeComando)}
-     * mediante {@link #fueExitosa()}.
+     * Confecciona el informe final (exito o fracaso + balance de recursos).
+     * Todavia NO aplica recompensas: eso ocurre en cerrar().
      *
-     * @param a El asistente de comando.
-     * @return true si la mision fue exitosa, false en caso contrario.
+     * @pre fase == EJECUTADA, o fase == PREPARADA con la mision ya fallida
+     * @post informe != null && fase == EVALUADA
      */
-    protected abstract boolean evaluar(AsistenteDeComando a);
+    protected void evaluar(AsistenteDeComando a) {
+        boolean ok = (fase == Fase.EJECUTADA) || (fase == Fase.PREPARADA && fallida);
+        if (!ok) {
+            throw new IllegalStateException("No se puede evaluar una mision en fase " + fase);
+        }
+        boolean exito = !fallida;
+        registrarAccion("Mision " + nombre + " evaluada: " + (exito ? "EXITOSA" : "FALLIDA"));
+
+        String observaciones = exito
+                ? "Mision completada en " + turnos + " turnos."
+                : "Motivo del fracaso: " + motivoFallo;
+
+        informe = new InformeMision(nombre, objetivo(), exito, descripcionResultado(exito),
+                acciones, recorrido, balanceDeRecursos(a, exito),
+                String.valueOf(a.consultarEstado()), observaciones);
+        fase = Fase.EVALUADA;
+        verificarInvariantes();
+    }
 
     /**
-     * Cierra la mision y genera el reporte final.
+     * Impacta de forma definitiva en la nave lo ganado o entregado (solo si hubo exito).
      *
-     * @param a El asistente de comando.
-     * @return El objeto InformeMision con los datos recopilados.
-     * @post Retorna un InformeMision (una mision no puede cerrarse sin resultado e informe).
+     * @pre fase == EVALUADA && informe != null  (no se cierra sin resultado e informe)
+     * @post fase == CERRADA
+     * @post si !fallida: se aplico la recompensa/entrega de la mision exactamente una vez
+     * @post el informe contiene el estado final de la nave
+     * @throws IllegalStateException si se intenta cerrar sin evaluar
      */
-    protected abstract InformeMision cerrar(AsistenteDeComando a);
-
-    /** @return La energia extra requerida por el objetivo especifico de la mision. */
-    protected abstract int energiaAdicional();
-
-    /** @return El costo base de combustible para la operacion controlada en E1. */
-    protected int costoCombustible() {
-        return 4;
+    protected void cerrar(AsistenteDeComando a) {
+        if (fase != Fase.EVALUADA || informe == null) {
+            throw new IllegalStateException("Una mision no puede cerrarse sin resultado e informe.");
+        }
+        if (!fallida) {
+            aplicarRecompensa(a);
+            registrarAccion("Cierre: " + describirRecompensa());
+        } else {
+            registrarAccion("Cierre sin recompensas (mision fallida)");
+        }
+        registrarAccion("Mision " + nombre + " cerrada");
+        informe.registrarEstadoFinal(String.valueOf(a.consultarEstado()));
+        fase = Fase.CERRADA;
+        verificarInvariantes();
     }
 
-    /** @return El desgaste base generado por la operacion controlada en E1. */
-    protected int costoDesgaste() {
-        return 4;
+
+    /** @return coordenada objetivo. @post != null */
+    protected abstract Posicion determinarDestino(AsistenteDeComando a);
+
+    /** @return energia consumida al despegar (Anexo: M-01=5, M-02=10, M-03=0). @post >= 0 */
+    protected abstract int energiaDespegue();
+
+    /**
+     * Verificacion al llegar al destino. Por defecto no exige nada.
+     * Si la condicion no se cumple, la subclase debe llamar a {@link #fallar(String)}.
+     * NO descuenta nada: el descuento efectivo se hace en cerrar().
+     */
+    protected void verificarEnDestino(AsistenteDeComando a) { }
+
+    /**
+     * Aplica la recompensa o entrega definitiva.
+     * @pre solo se invoca si la mision no fallo
+     */
+    protected abstract void aplicarRecompensa(AsistenteDeComando a);
+
+    /** @return texto de lo que se entrega/recibe al cerrar (para informe y bitacora). */
+    protected abstract String describirRecompensa();
+
+    /** @return objetivo evaluado, para el informe. */
+    protected abstract String objetivo();
+
+    /** @return texto del resultado final segun el exito. */
+    protected abstract String descripcionResultado(boolean exito);
+
+    /** @return costo base de combustible al despegar (igual para las tres misiones). */
+    protected int combustibleDespegue() { return 4; }
+
+    /** @return desgaste generado al despegar (igual para las tres misiones). */
+    protected int desgasteDespegue() { return 4; }
+
+    /** @return pausa entre turnos para poder ver el avance en el tablero. */
+    protected int pausaPorTurnoMs() { return 300; }
+
+    /**
+     * Marca la mision como fallida. Se conserva el PRIMER motivo registrado.
+     * @pre motivo != null && !motivo.isBlank()
+     */
+    protected final void fallar(String motivo) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new IllegalArgumentException("El motivo del fallo no puede estar vacio");
+        }
+        if (!fallida) {
+            fallida = true;
+            motivoFallo = motivo;
+            registrarAccion("FALLO: " + motivo);
+        }
     }
 
-    // ---- Apoyo para las subclases ----
-
-    /** Permite a las subclases agregar acciones a la lista de la mision. */
-    protected void registrarAccion(String accion) {
+    /** Agrega una accion a la lista (y al informe, si ya fue generado). */
+    protected final void registrarAccion(String accion) {
+        if (accion == null || accion.isBlank()) {
+            throw new IllegalArgumentException("Accion vacia");
+        }
         acciones.add(accion);
+        if (informe != null) {
+            informe.agregarAccion(accion);
+        }
+    }
+
+    protected static String coord(Posicion p) {
+        return p == null ? "(sin posicion)" : "(" + p.getX() + "," + p.getY() + ")";
     }
 
     /** @return copia de las acciones registradas hasta el momento. */
@@ -111,24 +355,89 @@ public abstract class Mision {
         return new ArrayList<>(acciones);
     }
 
-    /** @return true si la operacion controlada se completo (recursos consumidos). */
-    protected boolean operacionCompletada() {
-        return operacionCompletada;
+    protected final boolean haFallado() { return fallida; }
+
+    public String getNombre() { return nombre; }
+
+    /**
+     * @return informe de la ultima ejecucion, o null si todavia no hay uno.
+     * Usar el valor devuelto por ejecutarCiclo(); no consultar mientras la mision corre.
+     */
+    public InformeMision getInforme() { return informe; }
+
+    public int getTurnos() { return turnos; }
+
+
+
+    private void reiniciar() {
+        acciones.clear();
+        recorrido.clear();
+        rutaPlanificada = Collections.emptyList();
+        destino = null;
+        fallida = false;
+        motivoFallo = null;
+        turnos = 0;
+        informe = null;
+        fase = Fase.SIN_INICIAR;
     }
 
-    /** @return resultado de la ultima evaluacion. */
-    protected boolean fueExitosa() {
-        return exito;
+    private void exigirFase(Fase esperada, String paso) {
+        if (fase != esperada) {
+            throw new IllegalStateException("No se puede " + paso + " en fase " + fase
+                    + " (se esperaba " + esperada + ")");
+        }
     }
 
-    /** @return resumen de los recursos consumidos por la mision. */
-    protected String resumenRecursosConsumidos() {
-        return "Combustible: " + costoCombustible()
-                + ", Energia: " + energiaAdicional()
-                + ", Desgaste: " + costoDesgaste();
+    /** @return null si alcanzan los recursos; si no, descripcion de lo que falta. */
+    private String recursosMinimosFaltantes() {
+        // Tras el despegue ningun recurso puede quedar en 0 ni el desgaste en 100 (nave destruida).
+        if (combustibleInicial <= combustibleDespegue()) {
+            return "combustible " + combustibleInicial + " (se requieren mas de " + combustibleDespegue() + ")";
+        }
+        if (energiaInicial <= energiaDespegue()) {
+            return "energia " + energiaInicial + " (se requieren mas de " + energiaDespegue() + ")";
+        }
+        if (desgasteInicial + desgasteDespegue() >= DESGASTE_DESTRUCCION) {
+            return "desgaste " + desgasteInicial + " (el despegue lo llevaria a " + DESGASTE_DESTRUCCION + ")";
+        }
+        return null;
     }
 
-    public String getNombre() {
-        return this.nombre;
+    private String resumenDespegue() {
+        return "combustible -" + combustibleDespegue()
+                + ", energia -" + energiaDespegue()
+                + ", desgaste +" + desgasteDespegue();
+    }
+
+    private String balanceDeRecursos(AsistenteDeComando a, boolean exito) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Combustible: ").append(combustibleInicial).append(" -> ").append(a.getCombustible())
+                .append(" (").append(variacion(a.getCombustible() - combustibleInicial)).append(")");
+        sb.append(" | Energia: ").append(energiaInicial).append(" -> ").append(a.getEnergia())
+                .append(" (").append(variacion(a.getEnergia() - energiaInicial)).append(")");
+        sb.append(" | Desgaste: ").append(desgasteInicial).append(" -> ").append(a.getDesgaste())
+                .append(" (").append(variacion(a.getDesgaste() - desgasteInicial)).append(")");
+        if (exito) {
+            sb.append(" | A aplicar en el cierre: ").append(describirRecompensa());
+        }
+        return sb.toString();
+    }
+
+    private static String variacion(int delta) {
+        return delta > 0 ? "+" + delta : String.valueOf(delta);
+    }
+
+    /** Comprueba los invariantes de clase al terminar cada fase. */
+    private void verificarInvariantes() {
+        if (turnos < 0 || turnos > MAX_TURNOS) {
+            throw new IllegalStateException("Invariante violado: turnos fuera de rango (" + turnos + ")");
+        }
+        if (fallida && motivoFallo == null) {
+            throw new IllegalStateException("Invariante violado: mision fallida sin motivo");
+        }
+        boolean conInforme = (fase == Fase.EVALUADA || fase == Fase.CERRADA);
+        if (conInforme != (informe != null)) {
+            throw new IllegalStateException("Invariante violado: fase " + fase + " e informe inconsistentes");
+        }
     }
 }
