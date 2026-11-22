@@ -209,3 +209,27 @@ suscripciones, rechazos, copias y registros concurrentes. También verifica
 la suscripción a través de `AsistenteDeComando`, operaciones de recursos y
 motor, y la separación de los avisos entre naves.
 
+## Visor del universo paralelo
+
+Para abrir el visor por separado, compilá el proyecto y ejecutá su clase principal.
+
+```bash
+mvn compile
+java -cp target/classes app.MainVisor
+```
+
+El visor empieza con una plataforma vacía de tres lugares. Los botones crean
+generadoras y naves consumidoras mientras corre la simulación. La lista muestra
+cuándo ingresan, esperan, depositan o retiran baterías. Cerrar la ventana detiene
+los hilos del universo paralelo.
+
+Para verificar el monitor y el visor en macOS o Linux, ejecutá lo siguiente.
+
+```bash
+mvn test-compile
+java -cp "target/classes:target/test-classes" modelo.concurrencia.VerificacionPlataformaDeCarga
+java -Djava.awt.headless=true -cp "target/classes:target/test-classes" controlador.VerificacionVisor
+```
+
+En Windows, usá `;` como separador del classpath.
+
