@@ -4,6 +4,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.BiFunction;
 
+import modelo.elementos.NaveEnemiga;
 import modelo.motor.MotorWarp;
 import modelo.nave.Nave;
 import modelo.nave.NaveCarguero;
@@ -12,22 +13,13 @@ import modelo.nave.NaveExploradora;
 import modelo.nave.TipoNave;
 
 /**
- * Fábrica de naves. El cliente pide un  TipoNave y recibe una Nave; nunca
- * necesita conocer ni instanciar las clases concretas.
+ * Fábrica de naves (propias y enemigas). El cliente pide un {@link TipoNave} y
+ * recibe una {@link Nave} o una {@link NaveEnemiga}; nunca necesita conocer ni
+ * instanciar las clases concretas.
  *
  * Garantía: toda nave creada tiene la configuración inicial válida de su tipo
  * (recursos de la Ficha de Inicio, motor propio y sin tripulantes), y su
- * Nave#getTipo() coincide con el tipo pedido.
- *
- * Cómo agregar un tipo de nave nuevo (cambios localizados)
- * Agregar la constante al enum  TipoNave.
- * Crear la clase concreta (por ejemplo {NaveCientifica extends Nave}) con su
- * configuración inicial, copiando el esquema de  NaveExploradora}.
- * Registrarla con una sola líne en el constructor de esta fábrica:
- *       {@code registrar(TipoNave.CIENTIFICA, NaveCientifica::new);}
- * </ol>
- * <p>No se modifica ninguna clase existente fuera de esos tres puntos ni el método
- *  #crear(TipoNave, String)}, que no contiene condicionales por tipo.
+ * {@link Nave#getTipo()} coincide con el tipo pedido.
  */
 public final class NaveFactory {
 
@@ -43,10 +35,10 @@ public final class NaveFactory {
     /**
      * Crea una nave del tipo pedido.
      *
-     * Precondición:tipo no es nulo, está registrado, y id no es
+     * Precondición: {@code tipo} no es nulo, está registrado, y {@code id} no es
      * nulo ni vacío.
      * Postcondición: devuelve una nave nueva e independiente, con
-     * getTipo() == tipo, recursos iniciales del tipo y sin tripulantes.
+     * {@code getTipo() == tipo}, recursos iniciales del tipo y sin tripulantes.
      *
      * @throws IllegalArgumentException si se rompe la precondición
      */
@@ -59,10 +51,21 @@ public final class NaveFactory {
             throw new IllegalArgumentException("Tipo de nave no soportado: " + tipo);
         }
         Nave nave = constructor.apply(id, new MotorWarp());
-        if (nave.getTipo() != tipo) { // chequeo de la postcondición
+        if (nave.getTipo() != tipo) {
             throw new IllegalStateException("La fábrica produjo una nave de tipo " + nave.getTipo() + " al pedirse " + tipo);
         }
         return nave;
+    }
+
+    /**
+     * Crea un elemento espacial {@link NaveEnemiga} del tipo pedido utilizando
+     * el mismo registro polimórfico de la fábrica, sin que el cliente instancie
+     * clases concretas de nave.
+     *
+     * Precondición: {@code tipo != null} y {@code id} no nulo ni vacío.
+     */
+    public NaveEnemiga crearNaveEnemiga(TipoNave tipo, String id) {
+        return new NaveEnemiga(crear(tipo, id));
     }
 
     private void registrar(TipoNave tipo, BiFunction<String, MotorWarp, Nave> constructor) {

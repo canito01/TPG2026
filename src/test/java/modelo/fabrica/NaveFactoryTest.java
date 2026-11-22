@@ -2,11 +2,13 @@ package modelo.fabrica;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
+import modelo.elementos.NaveEnemiga;
 import modelo.nave.Nave;
 import modelo.nave.NaveCarguero;
 import modelo.nave.NaveCombate;
@@ -59,6 +61,16 @@ class NaveFactoryTest {
     }
 
     @Test
+    void creaNavesEnemigasDeLosTresTiposSinExponerClasesConcretas() {
+        for (TipoNave tipo : TipoNave.values()) {
+            NaveEnemiga enemiga = fabrica.crearNaveEnemiga(tipo, "ENEM-" + tipo);
+            assertNotNull(enemiga);
+            assertEquals(tipo, enemiga.getTipo());
+            assertEquals("NaveEnemiga", enemiga.getNombre());
+        }
+    }
+
+    @Test
     void cadaNaveCreadaEsIndependiente() {
         Nave a = fabrica.crear(TipoNave.EXPLORADORA, "A");
         Nave b = fabrica.crear(TipoNave.EXPLORADORA, "B");
@@ -67,12 +79,13 @@ class NaveFactoryTest {
         assertNotSame(a.getMotor(), b.getMotor());
 
         a.getRecursos().consumir(10, 10);
-        assertEquals(60, b.getRecursos().getCombustible()); // b no se vio afectada
+        assertEquals(60, b.getRecursos().getCombustible());
     }
 
     @Test
     void rechazaTipoNulo() {
         assertThrows(IllegalArgumentException.class, () -> fabrica.crear(null, "X"));
+        assertThrows(IllegalArgumentException.class, () -> fabrica.crearNaveEnemiga(null, "X"));
     }
 
     @Test

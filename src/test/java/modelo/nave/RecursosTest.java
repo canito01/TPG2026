@@ -20,7 +20,9 @@ class RecursosTest {
 
     @Test
     void constructorConValoresValidosConservaLosValores() {
-        assertEstado(new Recursos(60, 80, 0), 60, 80, 0);
+        Recursos r = new Recursos(60, 80, 0);
+        assertEstado(r, 60, 80, 0);
+        assertEquals(0, r.getGemas());
     }
 
     @Test
@@ -37,9 +39,10 @@ class RecursosTest {
         assertThrows(RecursoFueraDeRangoException.class, () -> new Recursos(50, 101, 0));
         assertThrows(RecursoFueraDeRangoException.class, () -> new Recursos(50, 50, -1));
         assertThrows(RecursoFueraDeRangoException.class, () -> new Recursos(50, 50, 101));
+        assertThrows(IllegalArgumentException.class, () -> new Recursos(50, 50, 0, -1));
     }
 
-    // ---------------------------------------------------------------- cargas
+    // ---------------------------------------------------------------- cargas estrictas (E1)
 
     @Test
     void cargarCombustibleSumaLaCantidad() {
@@ -113,14 +116,14 @@ class RecursosTest {
     void consumirEsAtomicoSiAlcanzaElCombustiblePeroNoLaEnergia() {
         Recursos r = new Recursos(50, 3, 0);
         assertThrows(RecursoFueraDeRangoException.class, () -> r.consumir(10, 5));
-        assertEstado(r, 50, 3, 0); // el combustible NO se descontó
+        assertEstado(r, 50, 3, 0);
     }
 
     @Test
     void consumirEsAtomicoSiAlcanzaLaEnergiaPeroNoElCombustible() {
         Recursos r = new Recursos(3, 50, 0);
         assertThrows(RecursoFueraDeRangoException.class, () -> r.consumir(5, 10));
-        assertEstado(r, 3, 50, 0); // la energía NO se descontó
+        assertEstado(r, 3, 50, 0);
     }
 
     @Test
@@ -211,7 +214,7 @@ class RecursosTest {
         assertTrue(r.puedeDesgastar(3));
         assertFalse(r.puedeDesgastar(4));
         assertFalse(r.puedeDesgastar(Integer.MAX_VALUE));
-        assertEstado(r, 60, 80, 97); // las consultas no modifican
+        assertEstado(r, 60, 80, 97);
     }
 
     // ---------------------------------------------------------------- copia
@@ -219,9 +222,66 @@ class RecursosTest {
     @Test
     void copiaEsIndependienteDelOriginal() {
         Recursos original = new Recursos(60, 80, 10);
+        original.recolectarGemas(30);
         Recursos copia = original.copia();
         original.consumir(10, 10);
         assertEstado(copia, 60, 80, 10);
+        assertEquals(30, copia.getGemas());
         assertEstado(original, 50, 70, 10);
+    }
+
+    // ---------------------------------------------------------------- operaciones E2
+
+    @Test
+    void recolectarGemasAcumulaValoresPositivos() {
+        Recursos r = new Recursos(60, 80, 0);
+        r.recolectarGemas(25);
+        r.recolectarGemas(40);
+        assertEquals(65, r.getGemas());
+        assertThrows(IllegalArgumentException.class, () -> r.recolectarGemas(0));
+        assertThrows(IllegalArgumentException.class, () -> r.recolectarGemas(-5));
+    }
+
+    @Test
+    void recargarHastaElTopeSaturaEn100SinLanzarExcepcion() {
+        Recursos r = new Recursos(85, 90, 15);
+        r.recargarHastaElTope(30, 25);
+        assertEstado(r, 100, 100, 15);
+        assertThrows(IllegalArgumentException.class, () -> r.recargarHastaElTope(-1, 5));
+    }
+
+    @Test
+    void recargaTotalRestauraCombustibleYEnergiaAl100YDesgasteA0() {
+        Recursos r = new Recursos(12, 34, 78);
+        r.recargaTotal();
+        assertEstado(r, 100, 100, 0);
+    }
+
+    @Test
+    void entregarRecursosDescuentaDeFormaAtomica() {
+        Recursos r = new Recursos(40, 50, 10);
+        assertTrue(r.puedeEntregar(20, 30));
+        r.entregarRecursos(20, 30);
+        assertEstado(r, 20, 20, 10);
+        assertFalse(r.puedeEntregar(25, 10));
+        assertThrows(RecursoFueraDeRangoException.class, () -> r.entregarRecursos(25, 10));
+        assertEstado(r, 20, 20, 10);
+    }
+
+    @Test
+    void perderEnergiaHastaCeroSaturaEnCeroYMarcaDestruida() {
+        Recursos r = new Recursos(60, 15, 0);
+        assertFalse(r.estaDestruida());
+        r.perderEnergiaHastaCero(20);
+        assertEquals(0, r.getEnergia());
+        assertTrue(r.estaDestruida());
+    }
+
+    @Test
+    void estaDestruidaPorDesgaste100Energia0OCombustible0() {
+        assertFalse(new Recursos(1, 1, 99).estaDestruida());
+        assertTrue(new Recursos(1, 1, 100).estaDestruida());
+        assertTrue(new Recursos(1, 0, 50).estaDestruida());
+        assertTrue(new Recursos(0, 1, 50).estaDestruida());
     }
 }
