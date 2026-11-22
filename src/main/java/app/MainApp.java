@@ -11,20 +11,25 @@ import javax.swing.SwingUtilities;
 
 import controlador.AuthController;
 import controlador.CreacionController;
+import controlador.MisionController;
 import controlador.RecursosBitacoraController;
 import controlador.TableroController;
 import controlador.VisorController;
 import modelo.asistente.AsistenteBase;
+import modelo.asistente.AsistenteDeComando;
+import modelo.asistente.PosicionNave;
 import modelo.concurrencia.UniversoParalelo;
 import modelo.fabrica.NaveFactory;
+import modelo.misiones.HistorialDeInformes;
 import modelo.nave.Nave;
-import modelo.tablero.Tablero;
-import modelo.tablero.TableroStub;
+import modelo.navegacion.Coordenada;
+import modelo.tablero.AdaptadorTableroDestino;
 import persistencia.dao.ConexionBD;
 import persistencia.dao.UsuarioDAO;
 import persistencia.dao.UsuarioDAOJdbc;
 import servicio.AutenticacionService;
 import vista.CreacionPanel;
+import vista.MisionesPanel;
 import vista.RecursosBitacoraPanel;
 import vista.VentanaPrincipal;
 import vista.VisorPanel;
@@ -56,37 +61,72 @@ public class MainApp {
     }
 
     private static void conectarModulos(VentanaPrincipal ventana) {
-        Tablero tablero = new TableroStub(0L);
+        NaveFactory naveFactory = new NaveFactory();
+        AdaptadorTableroDestino tablero = AdaptadorTableroDestino.crearUniversoPorDefecto(naveFactory);
         TableroController controlTablero = new TableroController(tablero);
+
         RecursosBitacoraPanel recursos = new RecursosBitacoraPanel();
         RecursosBitacoraController controlRecursos = new RecursosBitacoraController(recursos);
-        JSplitPane division = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, controlTablero.getVista(), recursos);
-        division.setResizeWeight(0.55);
+
+        MisionesPanel misionesPanel = new MisionesPanel();
+        HistorialDeInformes historialInformes = new HistorialDeInformes();
+
+        final Nave[] referenciaNaveActiva = new Nave[1];
+        MisionController controlMisiones = new MisionController(
+                misionesPanel,
+                historialInformes,
+                () -> {
+                    Coordenada objetivo = tablero.generarObjetivoAleatorio();
+                    return new PosicionNave(objetivo.getX(), objetivo.getY());
+                },
+                () -> {
+                    Nave actual = referenciaNaveActiva[0];
+                    if (actual != null) {
+                        ventana.getTripulantesPanel().actualizarTripulantes(actual.getTripulacion());
+                    }
+                }
+        );
+
+        JSplitPane panelDerecho = new JSplitPane(JSplitPane.VERTICAL_SPLIT, recursos, misionesPanel);
+        panelDerecho.setResizeWeight(0.42);
+
+        JSplitPane division = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, controlTablero.getVista(), panelDerecho);
+        division.setResizeWeight(0.48);
+
         JPanel controlNave = new JPanel(new BorderLayout());
         controlNave.add(division, BorderLayout.CENTER);
         ventana.setPanelControlNave(controlNave);
 
         CreacionPanel creacion = new CreacionPanel();
-        new CreacionController(creacion, new NaveFactory(), new Consumer<Nave>() {
+        new CreacionController(creacion, naveFactory, new Consumer<Nave>() {
             private Nave naveActiva;
+            private AsistenteDeComando asistenteActivo;
 
             @Override
             public void accept(Nave nave) {
                 if (nave != naveActiva) {
-                    controlRecursos.seleccionarAsistente(AsistenteBase.conTablero(nave, tablero));
+                    if (tablero.getPosicionNave() != null) {
+                        nave.setBaseDeOrigen(tablero.getPosicionNave());
+                    }
+                    asistenteActivo = AsistenteBase.conTablero(nave, tablero);
+                    controlRecursos.seleccionarAsistente(asistenteActivo);
                     naveActiva = nave;
+                    referenciaNaveActiva[0] = nave;
                 }
+                controlMisiones.actualizarNaveActiva(naveActiva, asistenteActivo);
                 ventana.getTripulantesPanel().actualizarTripulantes(nave.getTripulacion());
             }
         });
         ventana.setPanelCreacion(creacion);
 
         VisorPanel visor = new VisorPanel();
-        VisorController controlVisor = new VisorController(visor, new UniversoParalelo(3, 900, 1_400));
+        VisorController controlVisor = new VisorController(visor, new UniversoParalelo(3, 2_000, 3_000));
         ventana.setPanelVisor(visor);
+
         ventana.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent evento) {
+                controlMisiones.cerrar();
                 controlVisor.close();
                 controlRecursos.seleccionarAsistente(null);
                 controlTablero.cerrar();
