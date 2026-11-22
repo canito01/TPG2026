@@ -7,6 +7,7 @@ public class EjecutarPruebas {
         PruebasMotorWarp.correrTodas();
         PruebasNavegacion.correrTodas();
         PruebasTablero.correrTodas();
+        PruebasAdaptadorDestino.correrTodas();
         PruebasCentroDeControl.correrTodas();
         vista.PruebasVista.correrTodas();
         app.PruebasEscenarios.correrTodas();
