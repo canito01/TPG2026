@@ -11,6 +11,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -33,18 +34,28 @@ public class RegistroPanel extends JPanel {
         setLayout(new GridBagLayout());
         setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
 
-        JPanel tarjeta = new JPanel(new BorderLayout(0, 16));
+        JPanel tarjeta = new JPanel(new BorderLayout(0, 14));
+        tarjeta.putClientProperty("esTarjeta", Boolean.TRUE);
         tarjeta.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 205, 215)),
-                BorderFactory.createEmptyBorder(24, 28, 24, 28)
+                BorderFactory.createLineBorder(TemaVisual.ROSA_PASTEL, 2),
+                BorderFactory.createEmptyBorder(20, 28, 20, 28)
         ));
-        tarjeta.setPreferredSize(new Dimension(400, 350));
+        tarjeta.setPreferredSize(new Dimension(440, 500));
+
+        JPanel cabecera = new JPanel(new BorderLayout(0, 6));
+        cabecera.setOpaque(false);
+        JPanel envoltorioLogo = new JPanel();
+        envoltorioLogo.setOpaque(false);
+        envoltorioLogo.add(new LogoNave(220, 96, true));
+        cabecera.add(envoltorioLogo, BorderLayout.NORTH);
 
         JLabel lblTitulo = new JLabel("Registro de Nuevo Operador", SwingConstants.CENTER);
         lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 18));
-        tarjeta.add(lblTitulo, BorderLayout.NORTH);
+        cabecera.add(lblTitulo, BorderLayout.SOUTH);
+        tarjeta.add(cabecera, BorderLayout.NORTH);
 
         JPanel formulario = new JPanel(new GridBagLayout());
+        formulario.setOpaque(false);
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(6, 4, 6, 4);
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -90,6 +101,7 @@ public class RegistroPanel extends JPanel {
         tarjeta.add(formulario, BorderLayout.CENTER);
 
         JPanel acciones = new JPanel(new GridBagLayout());
+        acciones.setOpaque(false);
         GridBagConstraints btnGbc = new GridBagConstraints();
         btnGbc.insets = new Insets(4, 4, 4, 4);
         btnGbc.fill = GridBagConstraints.HORIZONTAL;
@@ -107,6 +119,12 @@ public class RegistroPanel extends JPanel {
         tarjeta.add(acciones, BorderLayout.SOUTH);
 
         add(tarjeta);
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        TemaVisual.dibujarFondoGlobo(g, getWidth(), getHeight());
     }
 
     public String getNombreUsuario() {
@@ -138,8 +156,8 @@ public class RegistroPanel extends JPanel {
     }
 
     public void mostrarError(String mensaje) {
-        lblMensaje.setForeground(new Color(180, 35, 24));
-        lblMensaje.setText(mensaje);
+        lblMensaje.setForeground(TemaVisual.ERROR);
+        lblMensaje.setText("<html><div style='text-align:center;'>" + mensaje + "</div></html>");
     }
 
     public void limpiarFormulario() {

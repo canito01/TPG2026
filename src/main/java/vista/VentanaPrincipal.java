@@ -11,6 +11,8 @@ import javax.swing.JTabbedPane;
 import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 
 /**
@@ -41,8 +43,10 @@ public class VentanaPrincipal extends JFrame {
 
     public VentanaPrincipal() {
         super("TPG 2026 — Sistema de Control de Nave Espacial");
+        setIconImage(LogoNave.crearIconoVentana(64));
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1024, 680);
+        setSize(1120, 720);
+        setMinimumSize(new Dimension(920, 620));
         setLocationRelativeTo(null);
 
         cardLayout = new CardLayout();
@@ -56,13 +60,31 @@ public class VentanaPrincipal extends JFrame {
         JPanel panelSistema = new JPanel(new BorderLayout());
 
         JPanel barraSuperior = new JPanel(new BorderLayout());
-        barraSuperior.setBorder(BorderFactory.createEmptyBorder(8, 14, 8, 14));
+        barraSuperior.putClientProperty("esHeader", Boolean.TRUE);
+        barraSuperior.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 2, 0, TemaVisual.ROSA_PASTEL),
+                BorderFactory.createEmptyBorder(8, 16, 8, 16)
+        ));
+
+        JPanel marcaIzquierda = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        marcaIzquierda.setOpaque(false);
+        marcaIzquierda.add(new LogoNave(82, 30, false));
+        JLabel lblTituloApp = new JLabel("WEYLAND-YUTANI CORP · Control de Nave");
+        lblTituloApp.setFont(TemaVisual.FUENTE_SUBTITULO);
+        lblTituloApp.setForeground(TemaVisual.ROSA_PASTEL);
+        marcaIzquierda.add(lblTituloApp);
+
+        JPanel derechaHeader = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 4));
+        derechaHeader.setOpaque(false);
         lblUsuarioActivo = new JLabel("Operador: -");
         lblUsuarioActivo.setFont(new Font("SansSerif", Font.BOLD, 13));
         JButton btnCerrarSesion = new JButton("Cerrar sesión");
         btnCerrarSesion.addActionListener(e -> mostrarLogin());
-        barraSuperior.add(lblUsuarioActivo, BorderLayout.WEST);
-        barraSuperior.add(btnCerrarSesion, BorderLayout.EAST);
+        derechaHeader.add(lblUsuarioActivo);
+        derechaHeader.add(btnCerrarSesion);
+
+        barraSuperior.add(marcaIzquierda, BorderLayout.WEST);
+        barraSuperior.add(derechaHeader, BorderLayout.EAST);
 
         pestanas = new JTabbedPane();
         pestanas.addTab("Creación", crearPlaceholder("Sección de Creación de Nave y Tripulación (en integración)"));

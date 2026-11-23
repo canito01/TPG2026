@@ -31,6 +31,7 @@ import servicio.AutenticacionService;
 import vista.CreacionPanel;
 import vista.MisionesPanel;
 import vista.RecursosBitacoraPanel;
+import vista.TemaVisual;
 import vista.VentanaPrincipal;
 import vista.VisorPanel;
 
@@ -46,8 +47,10 @@ public class MainApp {
         AutenticacionService authService = new AutenticacionService(usuarioDAO);
 
         SwingUtilities.invokeLater(() -> {
+            TemaVisual.aplicarDefaultsSwing();
             VentanaPrincipal ventana = new VentanaPrincipal();
             conectarModulos(ventana);
+            TemaVisual.aplicarATodoElArbol(ventana.getContentPane());
             new AuthController(
                     ventana.getLoginPanel(),
                     ventana.getRegistroPanel(),

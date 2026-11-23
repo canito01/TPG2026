@@ -257,17 +257,17 @@ public class MisionesPanel extends JPanel {
     }
 
     public void mostrarEstadoInfo(String texto) {
-        lblEstado.setForeground(new Color(40, 75, 130));
+        lblEstado.setForeground(TemaVisual.TEXTO_SUAVE);
         lblEstado.setText(texto);
     }
 
     public void mostrarEstadoExito(String texto) {
-        lblEstado.setForeground(new Color(22, 120, 56));
+        lblEstado.setForeground(TemaVisual.EXITO);
         lblEstado.setText(texto);
     }
 
     public void mostrarEstadoError(String texto) {
-        lblEstado.setForeground(new Color(180, 35, 24));
+        lblEstado.setForeground(TemaVisual.ERROR);
         lblEstado.setText(texto);
     }
 
